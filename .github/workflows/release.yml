@@ -1,5 +1,7 @@
 name: release
-on: [push]
+on:
+  tags:
+    - v*
 
 permissions:
   contents: write
