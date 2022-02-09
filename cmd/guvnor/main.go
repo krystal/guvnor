@@ -1,4 +1,4 @@
-package guvnor
+package main
 
 import "log"
 
