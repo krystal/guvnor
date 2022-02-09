@@ -1,0 +1,50 @@
+# /etc/guvnor/services/identity.yaml
+
+startPort: 5000
+
+defaults:
+  image: ghcr.io/krystal/identity
+  imageTag: latest
+  env:
+    RAILS_ENV: production
+    SECRET_KEY_BASE: abcdef1234567890
+  mounts:
+    - host: /opt/identity/config.yml
+      container: /config.yml
+
+processes:
+  web:
+    command: bin/rails server
+    quantity: 1
+    restartMode: standard
+    env:
+      HOSTNAME: identity.k.io
+    caddy:
+      hostname: identity.k.io
+      ssl: false
+  
+  worker:
+    command: bin/rake worker
+    quantity: 4
+    restartMode: rolling
+  
+  cron:
+    command: bin/rake cron
+    restartMode: replace
+
+tasks:
+  console:
+    command: bin/rails console
+    interactive: true
+  migrate:
+    command: bin/rake db:migrate
+  notifySlack:
+    image: slack:21.3.4
+    env:
+      SLACK_CHANNEL: '#labs'
+      SLACK_MESSAGE: "Do something {.Host}"
+
+callbacks:
+  preDeployment: [migrate]
+  postDeployment: [notifySlack]
+ 

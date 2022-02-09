@@ -1,0 +1,14 @@
+# /etc/guvnor/config.yml
+
+caddy:
+  image: caddy:2.4.6-alpine
+  acme:
+    ca: https://acme-v02.api.letsencrypt.org/directory
+    email: support@example.com
+  ports:
+    http: 80
+    https: 443
+
+paths:
+  config: /etc/guvnor/services
+  state: /var/lib/guvnor
