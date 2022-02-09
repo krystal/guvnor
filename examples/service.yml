@@ -31,6 +31,10 @@ processes:
   cron:
     command: bin/rake cron
     restartMode: replace
+    network:
+      mode: host # or 'default'
+      name: potatos # if mode is 'default'
+      containerPort: 8080 # not for host networking
 
 tasks:
   console:
