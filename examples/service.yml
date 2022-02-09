@@ -22,7 +22,20 @@ processes:
     caddy:
       hostname: identity.k.io
       ssl: false
-  
+    readyChecks:
+      frequency: 2
+      timeout: 5
+      maximum: 30
+      http:
+        expectedStatus: 200
+        path: /login
+        headers:
+          - name: Host
+            value: identity.k.io
+      command:
+        command: stat /ready.txt
+        expectedExitCode: 0
+
   worker:
     command: bin/rake worker
     quantity: 4
@@ -33,15 +46,16 @@ processes:
     restartMode: replace
     network:
       mode: host # or 'default'
-      name: potatos # if mode is 'default'
       containerPort: 8080 # not for host networking
 
 tasks:
   console:
     command: bin/rails console
     interactive: true
+
   migrate:
     command: bin/rake db:migrate
+
   notifySlack:
     image: slack:21.3.4
     env:
