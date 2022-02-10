@@ -2,6 +2,7 @@ package main
 
 import (
 	goLog "log"
+	"os"
 
 	"github.com/docker/docker/client"
 	"github.com/krystal/guvnor"
@@ -47,6 +48,6 @@ func main() {
 	root := newRootCmd(deployCmd)
 
 	if err := root.Execute(); err != nil {
-		goLog.Fatalf(err.Error())
+		os.Exit(1)
 	}
 }
