@@ -16,7 +16,9 @@ func NewEngine(log *zap.Logger, docker *client.Client) *Engine {
 		log:    log,
 		docker: docker,
 		config: EngineConfig{
-			Caddy: CaddyConfig{},
+			Caddy: CaddyConfig{
+				Image: "docker.io/library/caddy:2.4.6-alpine",
+			},
 			Paths: PathsConfig{
 				Config: "./local/services",
 			},

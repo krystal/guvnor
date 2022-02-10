@@ -37,13 +37,12 @@ func containerFullName(
 	)
 }
 
-func mergeEnv(a, b map[string]string) []string {
+func mergeEnv(toMerge ...map[string]string) []string {
 	outMap := map[string]string{}
-	for k, v := range a {
-		outMap[k] = v
-	}
-	for k, v := range b {
-		outMap[k] = v
+	for _, mp := range toMerge {
+		for k, v := range mp {
+			outMap[k] = v
+		}
 	}
 
 	outSlice := make([]string, 0, len(outMap))
@@ -74,13 +73,23 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 	}
 	e.log.Debug("svcCfg", zap.Any("cfg", svcCfg))
 
-	deploymentID := 3 // TODO: Fetch/store this
+	if err := e.caddyInit(ctx); err != nil {
+		return err
+	}
+
+	deploymentID := 4 // TODO: Fetch/store this
 	for processName, process := range svcCfg.Processes {
-		e.log.Debug("reconciling process",
-			zap.String("name", processName),
+		e.log.Debug("deploying process",
+			zap.String("process", processName),
+			zap.String("service", svcName),
 		)
 
 		for i := 0; i < int(process.Quantity); i++ {
+			e.log.Debug("deploying process instance",
+				zap.String("process", processName),
+				zap.String("service", svcName),
+				zap.Int("i", i),
+			)
 			fullName := containerFullName(svcName, deploymentID, processName, i)
 
 			image := fmt.Sprintf(
@@ -97,12 +106,23 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 				return err
 			}
 
+			env := mergeEnv(
+				svcCfg.Defaults.Env,
+				process.Env,
+				map[string]string{
+					"PORT":              "", // TODO: Insert port
+					"GUVNOR_SERVICE":    svcName,
+					"GUVNOR_PROCESS":    processName,
+					"GUVNOR_DEPLOYMENT": fmt.Sprintf("%s", deploymentID),
+				},
+			)
+
 			res, err := e.docker.ContainerCreate(
 				ctx,
 				&container.Config{
 					Cmd:   process.Command,
 					Image: image,
-					Env:   mergeEnv(svcCfg.Defaults.Env, process.Env),
+					Env:   env,
 					Labels: map[string]string{
 						serviceLabel:    svcName,
 						processLabel:    processName,
@@ -128,10 +148,18 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 			// TODO: Verify it comes online
 		}
 
-		// TODO: Point caddy at new containers
+		if len(process.Caddy.Hostnames) > 0 {
+			// TODO: Point caddy at new containers
+		} else {
+			// TODO: Ensure process is no longer listed in caddy
+		}
 
 		// Shut down containers from previous generation
 		if deploymentID > 1 {
+			e.log.Debug("removing previous deployment containers",
+				zap.String("process", processName),
+				zap.String("service", svcName),
+			)
 			listToShutdown, err := e.docker.ContainerList(ctx, types.ContainerListOptions{
 				All: true,
 				Filters: filters.NewArgs(

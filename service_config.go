@@ -19,9 +19,10 @@ type ServiceConfig struct {
 }
 
 type ServiceDefaultsConfig struct {
-	Image    string            `yaml:"image"`
-	ImageTag string            `yaml:"imageTag"`
-	Env      map[string]string `yaml:"env"`
+	Image    string             `yaml:"image"`
+	ImageTag string             `yaml:"imageTag"`
+	Env      map[string]string  `yaml:"env"`
+	Mounts   ServiceMountConfig `yaml:"mounts"`
 }
 
 type ServiceMountConfig struct {
@@ -29,10 +30,16 @@ type ServiceMountConfig struct {
 	Container string `yaml:"container"`
 }
 
+type ProcessCaddyConfig struct {
+	Hostnames []string `yaml:"hostnames"`
+}
+
 type ServiceProcessConfig struct {
-	Command  []string          `yaml:"command"`
-	Quantity uint              `yaml:"quantity"`
-	Env      map[string]string `yaml:"env"`
+	Command  []string           `yaml:"command"`
+	Quantity uint               `yaml:"quantity"`
+	Env      map[string]string  `yaml:"env"`
+	Mounts   ServiceMountConfig `yaml:"mounts"`
+	Caddy    ProcessCaddyConfig `yaml:"caddy"`
 }
 
 var ErrMultipleServices = errors.New("multiple services found, no default")
