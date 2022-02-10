@@ -18,7 +18,7 @@ func NewEngine(log *zap.Logger, docker *client.Client) *Engine {
 		config: EngineConfig{
 			Caddy: CaddyConfig{},
 			Paths: PathsConfig{
-				Config: "/etc/guvnor/services",
+				Config: "./local/services",
 			},
 		},
 	}

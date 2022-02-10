@@ -11,10 +11,11 @@ import (
 )
 
 type ServiceConfig struct {
-	Name      string `yaml:"_"`
-	StartPort uint   `yaml:"startPort"`
+	Name      string                `yaml:"_"`
+	StartPort uint                  `yaml:"startPort"`
+	Defaults  ServiceDefaultsConfig `yaml:"defaults"`
 
-	Processes map[string]ServiceProcessConfig
+	Processes map[string]ServiceProcessConfig `yaml:"processes"`
 }
 
 type ServiceDefaultsConfig struct {
@@ -29,9 +30,9 @@ type ServiceMountConfig struct {
 }
 
 type ServiceProcessConfig struct {
-	Command  string
-	Quantity uint
-	Env      map[string]string
+	Command  []string          `yaml:"command"`
+	Quantity uint              `yaml:"quantity"`
+	Env      map[string]string `yaml:"env"`
 }
 
 var ErrMultipleServices = errors.New("multiple services found, no default")
@@ -59,6 +60,10 @@ func findDefaultService(configPath string) (string, error) {
 		}
 
 		serviceName = strings.TrimSuffix(entry.Name(), ".yaml")
+	}
+
+	if serviceName == "" {
+		return "", ErrNoService
 	}
 
 	return serviceName, nil
