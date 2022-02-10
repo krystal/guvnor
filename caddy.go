@@ -78,8 +78,12 @@ func (e *Engine) caddyInit(ctx context.Context) error {
 	return nil
 }
 
-// caddyReconcileService sets up the appropriate routes in Caddy for a
+// configureProcessInCaddy sets up the appropriate routes in Caddy for a
 // specific process/service
-func (e *Engine) caddyReconcileService(ctx context.Context, serviceName string, processName string, ports []string) error {
+func (e *Engine) configureProcessInCaddy(ctx context.Context, serviceName string, processName string, hostNames []string, ports []string) error {
+	return nil
+}
+
+func (e *Engine) purgeProcessFromCaddy(ctx context.Context, serviceName string, processName string) error {
 	return nil
 }

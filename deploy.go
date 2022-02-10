@@ -148,10 +148,21 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 			// TODO: Verify it comes online
 		}
 
+		ports := []string{} // TODO: Fetch these as we create containers
 		if len(process.Caddy.Hostnames) > 0 {
-			// TODO: Point caddy at new containers
+			// Sync caddy configuration with new ports
+			err = e.configureProcessInCaddy(
+				ctx, svcName, processName, process.Caddy.Hostnames, ports,
+			)
+			if err != nil {
+				return err
+			}
 		} else {
-			// TODO: Ensure process is no longer listed in caddy
+			// Clear out any caddy config associated with this process
+			err = e.purgeProcessFromCaddy(ctx, svcName, processName)
+			if err != nil {
+				return err
+			}
 		}
 
 		// Shut down containers from previous generation
