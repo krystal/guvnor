@@ -1,0 +1,7 @@
+foo.localhost, foo2.localhost {
+    respond "foo"
+}
+
+bar.localhost {
+    respond "bar"
+}

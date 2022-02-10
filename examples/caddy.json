@@ -1,0 +1,66 @@
+{
+  "apps": {
+    "http": {
+      "servers": {
+        "srv0": {
+          "listen": [
+            ":443"
+          ],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "body": "foo",
+                          "handler": "static_response"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "match": [
+                {
+                  "host": [
+                    "foo.localhost",
+                    "foo2.localhost"
+                  ]
+                }
+              ],
+              "terminal": true
+            },
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "body": "bar",
+                          "handler": "static_response"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "match": [
+                {
+                  "host": [
+                    "bar.localhost"
+                  ]
+                }
+              ],
+              "terminal": true
+            }
+          ]
+        }
+      }
+    }
+  }
+}
