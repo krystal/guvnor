@@ -1,14 +1,17 @@
 package main
 
 import (
-	"log"
+	goLog "log"
 
+	"github.com/docker/docker/client"
+	"github.com/krystal/guvnor"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var version = "indev"
 
-func NewRootCmd(subCommands ...*cobra.Command) *cobra.Command {
+func newRootCmd(subCommands ...*cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "guvnor",
 		Version: version,
@@ -25,10 +28,25 @@ func NewRootCmd(subCommands ...*cobra.Command) *cobra.Command {
 }
 
 func main() {
-	root := NewRootCmd()
+	var e *guvnor.Engine
+	{ // TODO: Only set this up if the command needs it
+		log, err := zap.NewDevelopment()
+		if err != nil {
+			goLog.Fatalf("failed to setup logger: %s", err)
+		}
 
-	err := root.Execute()
-	if err != nil {
-		log.Fatalf(err.Error())
+		dockerClient, err := client.NewClientWithOpts(client.FromEnv)
+		if err != nil {
+			goLog.Fatalf("failed to connect to docker")
+		}
+
+		e = guvnor.NewEngine(log, dockerClient)
+	}
+
+	deployCmd := newDeployCmd(e)
+	root := newRootCmd(deployCmd)
+
+	if err := root.Execute(); err != nil {
+		goLog.Fatalf(err.Error())
 	}
 }
