@@ -29,10 +29,10 @@ func containerFullName(
 	count int,
 ) string {
 	return fmt.Sprintf(
-		"%s-%d-%s-%d",
+		"%s-%s-%d-%d",
 		serviceName,
-		deploymentID,
 		processName,
+		deploymentID,
 		count,
 	)
 }
@@ -98,7 +98,7 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 				svcCfg.Defaults.ImageTag,
 			)
 
-			// This will not fetch unless it's not present in the local cache.
+			// Pulls the image if not already in the local cache
 			_, err = e.docker.ImagePull(
 				ctx, image, types.ImagePullOptions{},
 			)
