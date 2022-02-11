@@ -5,6 +5,13 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	serviceLabel    = "io.k.guvnor.service"
+	processLabel    = "io.k.guvnor.process"
+	deploymentLabel = "io.k.guvnor.deployment"
+	managedLabel    = "io.k.guvnor.managed"
+)
+
 type Engine struct {
 	log    *zap.Logger
 	docker *client.Client

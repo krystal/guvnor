@@ -3,18 +3,14 @@ package guvnor
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"go.uber.org/zap"
-)
-
-const (
-	serviceLabel    = "io.k.guvnor/service"
-	processLabel    = "io.k.guvnor/process"
-	deploymentLabel = "io.k.guvnor/deployment"
 )
 
 type DeployConfig struct {
@@ -99,12 +95,14 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 			)
 
 			// Pulls the image if not already in the local cache
-			_, err = e.docker.ImagePull(
+			pullStream, err := e.docker.ImagePull(
 				ctx, image, types.ImagePullOptions{},
 			)
 			if err != nil {
 				return err
 			}
+			defer pullStream.Close()
+			io.Copy(os.Stdout, pullStream)
 
 			env := mergeEnv(
 				svcCfg.Defaults.Env,
@@ -113,7 +111,7 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 					"PORT":              "", // TODO: Insert port
 					"GUVNOR_SERVICE":    svcName,
 					"GUVNOR_PROCESS":    processName,
-					"GUVNOR_DEPLOYMENT": fmt.Sprintf("%s", deploymentID),
+					"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
 				},
 			)
 
@@ -127,6 +125,7 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 						serviceLabel:    svcName,
 						processLabel:    processName,
 						deploymentLabel: fmt.Sprintf("%d", deploymentID),
+						managedLabel:    "1",
 					},
 				},
 				&container.HostConfig{},

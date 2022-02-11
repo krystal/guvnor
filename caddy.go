@@ -2,6 +2,8 @@ package guvnor
 
 import (
 	"context"
+	"io"
+	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -41,17 +43,22 @@ func (e *Engine) caddyInit(ctx context.Context) error {
 	e.log.Debug("no caddy container detected, creating one")
 	// This will not fetch unless it's not present in the local cache.
 	image := e.config.Caddy.Image
-	_, err = e.docker.ImagePull(
+	pullStream, err := e.docker.ImagePull(
 		ctx, image, types.ImagePullOptions{},
 	)
 	if err != nil {
 		return err
 	}
+	defer pullStream.Close()
+	io.Copy(os.Stdout, pullStream)
 
 	createRes, err := e.docker.ContainerCreate(
 		ctx,
 		&container.Config{
 			Image: image,
+			Labels: map[string]string{
+				managedLabel: "1",
+			},
 		},
 		&container.HostConfig{
 			NetworkMode: "host",

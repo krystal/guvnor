@@ -45,7 +45,8 @@ func main() {
 	}
 
 	deployCmd := newDeployCmd(e)
-	root := newRootCmd(deployCmd)
+	purgeCmd := newPurgeCmd(e)
+	root := newRootCmd(deployCmd, purgeCmd)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
