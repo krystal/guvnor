@@ -2,6 +2,7 @@ package guvnor
 
 import (
 	"github.com/docker/docker/client"
+	"github.com/krystal/guvnor/caddy"
 	"go.uber.org/zap"
 )
 
@@ -16,13 +17,13 @@ type Engine struct {
 	log    *zap.Logger
 	docker *client.Client
 	config EngineConfig
-	caddy  *CaddyManager
+	caddy  *caddy.Manager
 }
 
 func NewEngine(log *zap.Logger, docker *client.Client) *Engine {
 	// TODO: Load this from disk
 	cfg := EngineConfig{
-		Caddy: CaddyConfig{
+		Caddy: caddy.Config{
 			Image: "docker.io/library/caddy:2.4.6-alpine",
 		},
 		Paths: PathsConfig{
@@ -34,10 +35,13 @@ func NewEngine(log *zap.Logger, docker *client.Client) *Engine {
 		log:    log,
 		docker: docker,
 		config: cfg,
-		caddy: &CaddyManager{
-			docker: docker,
-			log:    log.Named("caddy"),
-			config: cfg.Caddy,
+		caddy: &caddy.Manager{
+			Docker: docker,
+			Log:    log.Named("caddy"),
+			Config: cfg.Caddy,
+			ContainerLabels: map[string]string{
+				managedLabel: "1",
+			},
 		},
 	}
 }

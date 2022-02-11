@@ -107,7 +107,7 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 			defer pullStream.Close()
 			io.Copy(os.Stdout, pullStream)
 
-			containerPort := "8080"
+			containerPort := "9000"
 
 			env := mergeEnv(
 				svcCfg.Defaults.Env,
@@ -177,17 +177,18 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 			// TODO: Verify it comes online
 		}
 
+		caddyBackendName := fmt.Sprintf("%s-%s", svcName, processName)
 		if len(process.Caddy.Hostnames) > 0 {
 			// Sync caddy configuration with new ports
-			err = e.caddy.ConfigureProcess(
-				ctx, svcName, processName, process.Caddy.Hostnames, newPorts,
+			err = e.caddy.ConfigureBackend(
+				ctx, caddyBackendName, process.Caddy.Hostnames, newPorts,
 			)
 			if err != nil {
 				return err
 			}
 		} else {
 			// Clear out any caddy config associated with this process
-			err = e.caddy.PurgeProcess(ctx, svcName, processName)
+			err = e.caddy.DeleteBackend(ctx, caddyBackendName)
 			if err != nil {
 				return err
 			}

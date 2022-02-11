@@ -1,28 +1,10 @@
 package guvnor
 
+import "github.com/krystal/guvnor/caddy"
+
 type EngineConfig struct {
-	Caddy CaddyConfig `yaml:"caddy"`
-	Paths PathsConfig `yaml:"paths"`
-}
-
-type CaddyConfig struct {
-	// Image is the container image that should be deployed as caddy
-	Image string           `yaml:"image"`
-	ACME  CaddyACMEConfig  `yaml:"acme"`
-	Ports CaddyPortsConfig `yaml:"ports"`
-}
-
-type CaddyACMEConfig struct {
-	// CA is the URL of the ACME service.
-	CA string `yaml:"ca"`
-	// Email is the address that should be provided to the acme service for
-	// contacting us.
-	Email string `yaml:"email"`
-}
-
-type CaddyPortsConfig struct {
-	HTTP  uint `yaml:"http"`
-	HTTPS uint `yaml:"https"`
+	Caddy caddy.Config `yaml:"caddy"`
+	Paths PathsConfig  `yaml:"paths"`
 }
 
 type PathsConfig struct {
