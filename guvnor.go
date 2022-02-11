@@ -16,19 +16,28 @@ type Engine struct {
 	log    *zap.Logger
 	docker *client.Client
 	config EngineConfig
+	caddy  *CaddyManager
 }
 
 func NewEngine(log *zap.Logger, docker *client.Client) *Engine {
+	// TODO: Load this from disk
+	cfg := EngineConfig{
+		Caddy: CaddyConfig{
+			Image: "docker.io/library/caddy:2.4.6-alpine",
+		},
+		Paths: PathsConfig{
+			Config: "./local/services",
+		},
+	}
+
 	return &Engine{
 		log:    log,
 		docker: docker,
-		config: EngineConfig{
-			Caddy: CaddyConfig{
-				Image: "docker.io/library/caddy:2.4.6-alpine",
-			},
-			Paths: PathsConfig{
-				Config: "./local/services",
-			},
+		config: cfg,
+		caddy: &CaddyManager{
+			docker: docker,
+			log:    log.Named("caddy"),
+			config: cfg.Caddy,
 		},
 	}
 }

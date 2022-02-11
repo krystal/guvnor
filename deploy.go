@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/go-connections/nat"
 	"go.uber.org/zap"
 )
 
@@ -69,24 +70,26 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 	}
 	e.log.Debug("svcCfg", zap.Any("cfg", svcCfg))
 
-	if err := e.caddyInit(ctx); err != nil {
+	if err := e.caddy.Init(ctx); err != nil {
 		return err
 	}
 
-	deploymentID := 4 // TODO: Fetch/store this
+	deploymentID := 10 // TODO: Fetch/store this
 	for processName, process := range svcCfg.Processes {
 		e.log.Debug("deploying process",
 			zap.String("process", processName),
 			zap.String("service", svcName),
 		)
 
+		newPorts := []string{} // TODO: Fetch these as we create containers
 		for i := 0; i < int(process.Quantity); i++ {
+			fullName := containerFullName(svcName, deploymentID, processName, i)
 			e.log.Debug("deploying process instance",
 				zap.String("process", processName),
 				zap.String("service", svcName),
 				zap.Int("i", i),
+				zap.String("containerName", fullName),
 			)
-			fullName := containerFullName(svcName, deploymentID, processName, i)
 
 			image := fmt.Sprintf(
 				"%s:%s",
@@ -104,11 +107,13 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 			defer pullStream.Close()
 			io.Copy(os.Stdout, pullStream)
 
+			containerPort := "8080"
+
 			env := mergeEnv(
 				svcCfg.Defaults.Env,
 				process.Env,
 				map[string]string{
-					"PORT":              "", // TODO: Insert port
+					"PORT":              containerPort,
 					"GUVNOR_SERVICE":    svcName,
 					"GUVNOR_PROCESS":    processName,
 					"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
@@ -127,8 +132,25 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 						deploymentLabel: fmt.Sprintf("%d", deploymentID),
 						managedLabel:    "1",
 					},
+					ExposedPorts: nat.PortSet{
+						nat.Port(containerPort + "/tcp"): struct{}{},
+					},
 				},
-				&container.HostConfig{},
+				&container.HostConfig{
+					// TODO: Don't use port bindings if host networking mode
+					PortBindings: nat.PortMap{
+						nat.Port(containerPort + "/tcp"): []nat.PortBinding{
+							{
+								// Right now, select a random port on the host.
+								// Eventually we need to pre-select this in
+								// order to allow host networking to work
+								// nicely :3
+								HostPort: "0",
+								HostIP:   "127.0.0.1",
+							},
+						},
+					},
+				},
 				&network.NetworkingConfig{},
 				nil,
 				fullName,
@@ -144,21 +166,28 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 				return err
 			}
 
+			inspectRes, err := e.docker.ContainerInspect(ctx, res.ID)
+			if err != nil {
+				return err
+			}
+
+			randomHostPort := inspectRes.NetworkSettings.Ports[nat.Port(containerPort+"/tcp")][0].HostPort
+			newPorts = append(newPorts, randomHostPort)
+
 			// TODO: Verify it comes online
 		}
 
-		ports := []string{} // TODO: Fetch these as we create containers
 		if len(process.Caddy.Hostnames) > 0 {
 			// Sync caddy configuration with new ports
-			err = e.configureProcessInCaddy(
-				ctx, svcName, processName, process.Caddy.Hostnames, ports,
+			err = e.caddy.ConfigureProcess(
+				ctx, svcName, processName, process.Caddy.Hostnames, newPorts,
 			)
 			if err != nil {
 				return err
 			}
 		} else {
 			// Clear out any caddy config associated with this process
-			err = e.purgeProcessFromCaddy(ctx, svcName, processName)
+			err = e.caddy.PurgeProcess(ctx, svcName, processName)
 			if err != nil {
 				return err
 			}
@@ -166,10 +195,6 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 
 		// Shut down containers from previous generation
 		if deploymentID > 1 {
-			e.log.Debug("removing previous deployment containers",
-				zap.String("process", processName),
-				zap.String("service", svcName),
-			)
 			listToShutdown, err := e.docker.ContainerList(ctx, types.ContainerListOptions{
 				All: true,
 				Filters: filters.NewArgs(
@@ -186,6 +211,11 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 			}
 
 			for _, containerToShutdown := range listToShutdown {
+				e.log.Debug("removing previous deployment container",
+					zap.String("process", processName),
+					zap.String("service", svcName),
+					zap.String("container", containerToShutdown.ID),
+				)
 				err = e.docker.ContainerRemove(
 					ctx,
 					containerToShutdown.ID,
