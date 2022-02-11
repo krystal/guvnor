@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -21,7 +22,7 @@ import (
 
 const (
 	guvnorCaddyContainerName = "guvnor-caddy"
-	guvnorServerName         = "srv0"
+	guvnorServerName         = "guvnor"
 )
 
 type Config struct {
@@ -116,6 +117,21 @@ func (cm *Manager) Init(ctx context.Context) error {
 
 	cm.Log.Debug("started caddy container")
 
+	// Give caddy time to start..
+	// TODO: Detect caddy coming online
+	time.Sleep(1 * time.Second)
+
+	// TODO: actually build this config from structs
+	defaultConfig := fmt.Sprintf(
+		`{"apps":{"http":{"servers":{"%s":{"listen":[":80"],"routes":[]}}}}}`,
+		guvnorServerName,
+	)
+
+	err = cm.adminRequest(ctx, http.MethodPost, &url.URL{Path: "config/"}, defaultConfig, nil)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -155,8 +171,6 @@ func (cm *Manager) ConfigureBackend(ctx context.Context, backendName string, hos
 	if err != nil {
 		return err
 	}
-
-	cm.Log.Debug("current", zap.Any("config", currentRoutes))
 
 	// TODO: Find and update existing route group
 
@@ -204,15 +218,20 @@ func (cm *Manager) DeleteBackend(ctx context.Context, backendName string) error 
 func (cm *Manager) adminRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
 	var bodyToSend io.Reader
 	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("marshalling body: %w", err)
+		if v, ok := body.(string); ok {
+			// Send string directly
+			bodyToSend = bytes.NewBufferString(v)
+		} else {
+			// If not a string, JSONify it and send it
+			data, err := json.Marshal(body)
+			if err != nil {
+				return fmt.Errorf("marshalling body: %w", err)
+			}
+			bodyToSend = bytes.NewBuffer(data)
 		}
-
-		bodyToSend = bytes.NewBuffer(data)
 	}
 
-	// TODO: Pull this into the config for CaddyManager
+	// TODO: Pull this into the config for Manager
 	rootPath, err := url.Parse("http://localhost:2019")
 	if err != nil {
 		return err
@@ -227,6 +246,10 @@ func (cm *Manager) adminRequest(ctx context.Context, method string, path *url.UR
 
 	req.Header.Add("Content-Type", "application/json")
 
+	cm.Log.Debug("making request to caddy",
+		zap.String("url", req.URL.String()),
+		zap.String("method", req.Method),
+	)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("executing request: %w", err)
@@ -238,7 +261,10 @@ func (cm *Manager) adminRequest(ctx context.Context, method string, path *url.UR
 	if err != nil {
 		return fmt.Errorf("reading response body: %w", err)
 	}
-	cm.Log.Debug("data", zap.String("data", string(data)))
+	cm.Log.Debug("response from caddy",
+		zap.String("body", string(data)),
+		zap.Int("status", res.StatusCode),
+	)
 	if out != nil {
 		if err := json.Unmarshal(data, out); err != nil {
 			return fmt.Errorf("unmarshalling response: %w", err)
