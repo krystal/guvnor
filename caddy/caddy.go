@@ -137,7 +137,9 @@ func (cm *Manager) Init(ctx context.Context) error {
 		return err
 	}
 	defer pullStream.Close()
-	io.Copy(os.Stdout, pullStream)
+	if _, err := io.Copy(os.Stdout, pullStream); err != nil {
+		return err
+	}
 
 	createRes, err := cm.Docker.ContainerCreate(
 		ctx,
@@ -270,23 +272,27 @@ func (cm *Manager) ConfigureBackend(
 		if route.Group == backendName {
 			cm.Log.Debug("found existing route, patching", zap.Int("i", i))
 
-			routeConfigPath := fmt.Sprintf(
-				"config/apps/http/servers/%s/routes/%d",
-				guvnorServerName,
-				i,
-			)
-			return cm.doRequest(
-				ctx,
-				http.MethodPatch,
-				&url.URL{Path: routeConfigPath},
-				routeConfig,
-				nil,
-			)
+			return cm.patchRoute(ctx, i, routeConfig)
 		}
 	}
 
 	cm.Log.Debug("no existing route group found, prepending")
 	return cm.prependRoute(ctx, routeConfig)
+}
+
+func (cm *Manager) patchRoute(ctx context.Context, index int, route *caddyhttp.Route) error {
+	routeConfigPath := fmt.Sprintf(
+		"config/apps/http/servers/%s/routes/%d",
+		guvnorServerName,
+		index,
+	)
+	return cm.doRequest(
+		ctx,
+		http.MethodPatch,
+		&url.URL{Path: routeConfigPath},
+		route,
+		nil,
+	)
 }
 
 // getRoutes returns an slice of routes configured on the caddy server

@@ -74,7 +74,7 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 		return err
 	}
 
-	deploymentID := 2 // TODO: Fetch/store this
+	deploymentID := 4 // TODO: Fetch/store this
 	for processName, process := range svcCfg.Processes {
 		e.log.Debug("deploying process",
 			zap.String("process", processName),
@@ -105,7 +105,9 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 				return err
 			}
 			defer pullStream.Close()
-			io.Copy(os.Stdout, pullStream)
+			if _, err := io.Copy(os.Stdout, pullStream); err != nil {
+				return err
+			}
 
 			containerPort := "9000"
 
