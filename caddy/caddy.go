@@ -56,13 +56,28 @@ type Manager struct {
 }
 
 func (cm *Manager) defaultConfiguration() ([]byte, error) {
+	defaultHandler := map[string]interface{}{
+		"handler":     "static_response",
+		"body":        "Welcome to Guvnor. We found no backend matching your request.",
+		"status_code": "404",
+	}
+	defaultHandlerBytes, err := json.Marshal(defaultHandler)
+	if err != nil {
+		return nil, err
+	}
+
 	httpConfig := &caddyhttp.App{
 		HTTPPort:  cm.Config.Ports.HTTP,
 		HTTPSPort: cm.Config.Ports.HTTPS,
 		Servers: map[string]*caddyhttp.Server{
 			guvnorServerName: {
+				Listen: []string{":80", ":443"},
 				Routes: caddyhttp.RouteList{
-					caddyhttp.Route{},
+					caddyhttp.Route{
+						HandlersRaw: []json.RawMessage{
+							json.RawMessage(defaultHandlerBytes),
+						},
+					},
 				},
 			},
 		},
@@ -161,7 +176,7 @@ func (cm *Manager) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = cm.adminRequest(ctx, http.MethodPost, &url.URL{Path: "config/"}, defaultConfig, nil)
+	err = cm.doRequest(ctx, http.MethodPost, &url.URL{Path: "config/"}, defaultConfig, nil)
 	if err != nil {
 		return err
 	}
@@ -191,7 +206,7 @@ func (rp rpHandler) MarshalJSON() ([]byte, error) {
 	return json.Marshal(jsonMap)
 }
 
-func (cm *Manager) generateBackendConfig(backendName string, hostnames []string, ports []string) (*caddyhttp.Route, error) {
+func (cm *Manager) generateRouteforBackend(backendName string, hostnames []string, ports []string) (*caddyhttp.Route, error) {
 	handler := rpHandler{
 		Upstreams: reverseproxy.UpstreamPool{},
 	}
@@ -220,6 +235,7 @@ func (cm *Manager) generateBackendConfig(backendName string, hostnames []string,
 		HandlersRaw: []json.RawMessage{
 			json.RawMessage(handlerJson),
 		},
+		Terminal: true,
 	}
 
 	return &route, nil
@@ -233,23 +249,18 @@ func (cm *Manager) ConfigureBackend(
 	hostNames []string,
 	ports []string,
 ) error {
-	cm.Log.Debug("configuring caddy for process",
+	cm.Log.Debug("configuring caddy for backend",
 		zap.String("backend", backendName),
 		zap.Strings("hostnames", hostNames),
 		zap.Strings("ports", ports),
 	)
 	// Fetch current config
-	currentRoutes := caddyhttp.RouteList{}
-	routesConfigPath := fmt.Sprintf(
-		"config/apps/http/servers/%s/routes",
-		guvnorServerName,
-	)
-	err := cm.adminRequest(ctx, http.MethodGet, &url.URL{Path: routesConfigPath}, nil, &currentRoutes)
+	currentRoutes, err := cm.getRoutes(ctx)
 	if err != nil {
 		return err
 	}
 
-	routeConfig, err := cm.generateBackendConfig(backendName, hostNames, ports)
+	routeConfig, err := cm.generateRouteforBackend(backendName, hostNames, ports)
 	if err != nil {
 		return err
 	}
@@ -264,7 +275,7 @@ func (cm *Manager) ConfigureBackend(
 				guvnorServerName,
 				i,
 			)
-			return cm.adminRequest(
+			return cm.doRequest(
 				ctx,
 				http.MethodPatch,
 				&url.URL{Path: routeConfigPath},
@@ -274,12 +285,36 @@ func (cm *Manager) ConfigureBackend(
 		}
 	}
 
-	cm.Log.Debug("no existing route group found, appending")
-	return cm.adminRequest(
+	cm.Log.Debug("no existing route group found, prepending")
+	return cm.prependRoute(ctx, routeConfig)
+}
+
+// getRoutes returns an slice of routes configured on the caddy server
+func (cm *Manager) getRoutes(ctx context.Context) (caddyhttp.RouteList, error) {
+	currentRoutes := caddyhttp.RouteList{}
+	routesConfigPath := fmt.Sprintf(
+		"config/apps/http/servers/%s/routes",
+		guvnorServerName,
+	)
+	err := cm.doRequest(ctx, http.MethodGet, &url.URL{Path: routesConfigPath}, nil, &currentRoutes)
+	if err != nil {
+		return nil, err
+	}
+
+	return currentRoutes, nil
+}
+
+// prependRoute adds a new route to the start of the route array in the server
+func (cm *Manager) prependRoute(ctx context.Context, route *caddyhttp.Route) error {
+	prependRoutePath := fmt.Sprintf(
+		"config/apps/http/servers/%s/routes/0",
+		guvnorServerName,
+	)
+	return cm.doRequest(
 		ctx,
-		http.MethodPost,
-		&url.URL{Path: routesConfigPath},
-		routeConfig,
+		http.MethodPut,
+		&url.URL{Path: prependRoutePath},
+		route,
 		nil,
 	)
 }
@@ -293,7 +328,7 @@ func (cm *Manager) DeleteBackend(ctx context.Context, backendName string) error 
 	return nil
 }
 
-func (cm *Manager) adminRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
+func (cm *Manager) doRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
 	var bodyToSend io.Reader
 	if body != nil {
 		if v, ok := body.(string); ok {
