@@ -11,6 +11,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/caddyserver/caddy/v2"
+	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
+	"github.com/caddyserver/caddy/v2/modules/caddyhttp/reverseproxy"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -41,8 +44,8 @@ type ACMEConfig struct {
 }
 
 type PortsConfig struct {
-	HTTP  uint `yaml:"http"`
-	HTTPS uint `yaml:"https"`
+	HTTP  int `yaml:"http"`
+	HTTPS int `yaml:"https"`
 }
 
 type Manager struct {
@@ -50,6 +53,38 @@ type Manager struct {
 	Log             *zap.Logger
 	Config          Config
 	ContainerLabels map[string]string
+}
+
+func (cm *Manager) defaultConfiguration() ([]byte, error) {
+	httpConfig := &caddyhttp.App{
+		HTTPPort:  cm.Config.Ports.HTTP,
+		HTTPSPort: cm.Config.Ports.HTTPS,
+		Servers: map[string]*caddyhttp.Server{
+			guvnorServerName: {
+				Routes: caddyhttp.RouteList{
+					caddyhttp.Route{},
+				},
+			},
+		},
+	}
+	httpConfigBytes, err := json.Marshal(httpConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := caddy.Config{
+		Admin: &caddy.AdminConfig{
+			// We can rely on the default values here for now.
+		},
+		Logging: &caddy.Logging{
+			// We can rely on the default values here for now.
+		},
+		AppsRaw: caddy.ModuleMap{
+			"http": json.RawMessage(httpConfigBytes),
+		},
+	}
+
+	return json.Marshal(cfg)
 }
 
 // Init ensures a caddy container is running and configured to accept
@@ -122,11 +157,10 @@ func (cm *Manager) Init(ctx context.Context) error {
 	time.Sleep(1 * time.Second)
 
 	// TODO: actually build this config from structs
-	defaultConfig := fmt.Sprintf(
-		`{"apps":{"http":{"servers":{"%s":{"listen":[":80"],"routes":[]}}}}}`,
-		guvnorServerName,
-	)
-
+	defaultConfig, err := cm.defaultConfiguration()
+	if err != nil {
+		return err
+	}
 	err = cm.adminRequest(ctx, http.MethodPost, &url.URL{Path: "config/"}, defaultConfig, nil)
 	if err != nil {
 		return err
@@ -135,34 +169,77 @@ func (cm *Manager) Init(ctx context.Context) error {
 	return nil
 }
 
-type apiRoute struct {
-	Match  []apiMatch  `json:"match`
-	Handle []apiHandle `json:"handle"`
+type rpHandler reverseproxy.Handler
+
+func (rp rpHandler) MarshalJSON() ([]byte, error) {
+	// If there is a higher power, I hope they forgive me for this.
+	// Unfortunately, the types exposed by Caddy actually do not marshal by
+	// default in a way that Caddy itself can understand, a "handler" key must
+	// be injected to identify the type of the handler.
+	data, err := json.Marshal(reverseproxy.Handler(rp))
+	if err != nil {
+		return nil, err
+	}
+
+	jsonMap := map[string]interface{}{}
+	if err := json.Unmarshal(data, &jsonMap); err != nil {
+		return nil, err
+	}
+
+	jsonMap["handler"] = "reverse_proxy"
+
+	return json.Marshal(jsonMap)
 }
 
-type apiMatch struct {
-	Host []string `json:"host"`
-}
+func (cm *Manager) generateBackendConfig(backendName string, hostnames []string, ports []string) (*caddyhttp.Route, error) {
+	handler := rpHandler{
+		Upstreams: reverseproxy.UpstreamPool{},
+	}
 
-type apiHandle struct {
-	Handler   string        `json:"handler"`
-	Upstreams []apiUpstream `json:"upstreams`
-}
+	for _, port := range ports {
+		handler.Upstreams = append(handler.Upstreams, &reverseproxy.Upstream{
+			Dial: fmt.Sprintf("localhost:%s", port),
+		})
+	}
 
-type apiUpstream struct {
-	Dial string `json:"dial"`
+	matcherJson, err := json.Marshal(caddyhttp.MatchHost(hostnames))
+	if err != nil {
+		return nil, err
+	}
+	handlerJson, err := json.Marshal(handler)
+	if err != nil {
+		return nil, err
+	}
+	route := caddyhttp.Route{
+		Group: backendName,
+		MatcherSetsRaw: caddyhttp.RawMatcherSets{
+			{
+				"host": json.RawMessage(matcherJson),
+			},
+		},
+		HandlersRaw: []json.RawMessage{
+			json.RawMessage(handlerJson),
+		},
+	}
+
+	return &route, nil
 }
 
 // ConfigureBackend sets up the appropriate routes in Caddy for a
 // specific process/service
-func (cm *Manager) ConfigureBackend(ctx context.Context, backendName string, hostNames []string, ports []string) error {
+func (cm *Manager) ConfigureBackend(
+	ctx context.Context,
+	backendName string,
+	hostNames []string,
+	ports []string,
+) error {
 	cm.Log.Debug("configuring caddy for process",
 		zap.String("backend", backendName),
 		zap.Strings("hostnames", hostNames),
 		zap.Strings("ports", ports),
 	)
 	// Fetch current config
-	currentRoutes := []apiRoute{}
+	currentRoutes := caddyhttp.RouteList{}
 	routesConfigPath := fmt.Sprintf(
 		"config/apps/http/servers/%s/routes",
 		guvnorServerName,
@@ -172,38 +249,39 @@ func (cm *Manager) ConfigureBackend(ctx context.Context, backendName string, hos
 		return err
 	}
 
-	// TODO: Find and update existing route group
-
-	// If no existing route group, add one
-	proxyHandler := apiHandle{
-		Handler:   "reverse_proxy",
-		Upstreams: []apiUpstream{},
-	}
-
-	for _, port := range ports {
-		proxyHandler.Upstreams = append(proxyHandler.Upstreams, apiUpstream{
-			Dial: fmt.Sprintf("localhost:%s", port),
-		})
-	}
-
-	route := apiRoute{
-		Match: []apiMatch{
-			{
-				Host: hostNames,
-			},
-		},
-		Handle: []apiHandle{
-			proxyHandler,
-		},
-	}
-
-	// Persist to caddy
-	err = cm.adminRequest(ctx, http.MethodPost, &url.URL{Path: routesConfigPath}, &route, nil)
+	routeConfig, err := cm.generateBackendConfig(backendName, hostNames, ports)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	// Find and update existing route group
+	for i, route := range currentRoutes {
+		if route.Group == backendName {
+			cm.Log.Debug("found existing route, patching", zap.Int("i", i))
+
+			routeConfigPath := fmt.Sprintf(
+				"config/apps/http/servers/%s/routes/%d",
+				guvnorServerName,
+				i,
+			)
+			return cm.adminRequest(
+				ctx,
+				http.MethodPatch,
+				&url.URL{Path: routeConfigPath},
+				routeConfig,
+				nil,
+			)
+		}
+	}
+
+	cm.Log.Debug("no existing route group found, appending")
+	return cm.adminRequest(
+		ctx,
+		http.MethodPost,
+		&url.URL{Path: routesConfigPath},
+		routeConfig,
+		nil,
+	)
 }
 
 func (cm *Manager) DeleteBackend(ctx context.Context, backendName string) error {
@@ -221,12 +299,15 @@ func (cm *Manager) adminRequest(ctx context.Context, method string, path *url.UR
 		if v, ok := body.(string); ok {
 			// Send string directly
 			bodyToSend = bytes.NewBufferString(v)
+		} else if v, ok := body.([]byte); ok {
+			bodyToSend = bytes.NewBuffer(v)
 		} else {
 			// If not a string, JSONify it and send it
 			data, err := json.Marshal(body)
 			if err != nil {
 				return fmt.Errorf("marshalling body: %w", err)
 			}
+			cm.Log.Info("sending", zap.String("data", string(data)))
 			bodyToSend = bytes.NewBuffer(data)
 		}
 	}

@@ -42,8 +42,10 @@ type ServiceProcessConfig struct {
 	Caddy    ProcessCaddyConfig `yaml:"caddy"`
 }
 
-var ErrMultipleServices = errors.New("multiple services found, no default")
-var ErrNoService = errors.New("no service found")
+var (
+	ErrMultipleServices = errors.New("multiple services found, no default")
+	ErrNoService        = errors.New("no service found")
+)
 
 func findDefaultService(configPath string) (string, error) {
 	entries, err := os.ReadDir(configPath)
