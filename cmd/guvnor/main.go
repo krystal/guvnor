@@ -41,6 +41,7 @@ func main() {
 			goLog.Fatalf("failed to connect to docker: %s", err)
 		}
 
+		// TODO: Add a way to override which config is loaded :)
 		cfg, err := guvnor.LoadConfig("")
 		if err != nil {
 			goLog.Fatalf("failed to load config: %s", err)
@@ -51,7 +52,8 @@ func main() {
 
 	deployCmd := newDeployCmd(e)
 	purgeCmd := newPurgeCmd(e)
-	root := newRootCmd(deployCmd, purgeCmd)
+	runCmd := newRunCmd()
+	root := newRootCmd(deployCmd, purgeCmd, runCmd)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)

@@ -23,7 +23,6 @@ processes:
       hostnames:
         - identity.k.io
         - identity.another.domain
-      ssl: false
     readyChecks:
       frequency: 2
       timeout: 5
