@@ -37,3 +37,76 @@ func Test_mergeEnv(t *testing.T) {
 		})
 	}
 }
+
+func Test_mergeMounts(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b []ServiceMountConfig
+		want []ServiceMountConfig
+	}{
+		{
+			name: "only in a",
+			a: []ServiceMountConfig{
+				{
+					Host:      "/path/on/host/a",
+					Container: "/path/on/container",
+				},
+			},
+			b: []ServiceMountConfig{},
+			want: []ServiceMountConfig{
+				{
+					Host:      "/path/on/host/a",
+					Container: "/path/on/container",
+				},
+			},
+		},
+		{
+			name: "only in b",
+			a:    []ServiceMountConfig{},
+			b: []ServiceMountConfig{
+				{
+					Host:      "/path/on/host/b",
+					Container: "/path/on/container",
+				},
+			},
+			want: []ServiceMountConfig{
+				{
+					Host:      "/path/on/host/b",
+					Container: "/path/on/container",
+				},
+			},
+		},
+		{
+			name: "both",
+			a: []ServiceMountConfig{
+				{
+					Host:      "/path/on/host/a",
+					Container: "/path/on/container/a",
+				},
+			},
+			b: []ServiceMountConfig{
+				{
+					Host:      "/path/on/host/b",
+					Container: "/path/on/container/b",
+				},
+			},
+			want: []ServiceMountConfig{
+				{
+					Host:      "/path/on/host/a",
+					Container: "/path/on/container/a",
+				},
+				{
+					Host:      "/path/on/host/b",
+					Container: "/path/on/container/b",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := mergeMounts(tt.a, tt.b)
+			assert.ElementsMatch(t, tt.want, out)
+		})
+	}
+}

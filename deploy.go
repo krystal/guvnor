@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"go.uber.org/zap"
@@ -48,6 +49,14 @@ func mergeEnv(toMerge ...map[string]string) []string {
 	}
 
 	return outSlice
+}
+
+func mergeMounts(a, b []ServiceMountConfig) []ServiceMountConfig {
+	out := make([]ServiceMountConfig, 0, len(a)+len(b))
+	out = append(out, a...)
+	out = append(out, b...)
+
+	return out
 }
 
 func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
@@ -117,6 +126,7 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 
 			containerPort := "9000"
 
+			// Merge default, process and guvnor provided environment
 			env := mergeEnv(
 				svcCfg.Defaults.Env,
 				process.Env,
@@ -127,6 +137,18 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 					"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
 				},
 			)
+
+			// Merge mounts and convert to docker API mounts
+			mounts := []mount.Mount{}
+			for _, mnt := range mergeMounts(
+				svcCfg.Defaults.Mounts, process.Mounts,
+			) {
+				mounts = append(mounts, mount.Mount{
+					Type:   mount.TypeBind,
+					Source: mnt.Host,
+					Target: mnt.Container,
+				})
+			}
 
 			res, err := e.docker.ContainerCreate(
 				ctx,
@@ -158,6 +180,7 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 							},
 						},
 					},
+					Mounts: mounts,
 				},
 				&network.NetworkingConfig{},
 				nil,

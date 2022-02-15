@@ -173,7 +173,6 @@ func (cm *Manager) Init(ctx context.Context) error {
 	// TODO: Detect caddy coming online
 	time.Sleep(1 * time.Second)
 
-	// TODO: actually build this config from structs
 	defaultConfig, err := cm.defaultConfiguration()
 	if err != nil {
 		return err
