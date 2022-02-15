@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type DeployConfig struct {
+type DeployArgs struct {
 	ServiceName string
 	Tag         string
 }
@@ -59,8 +59,8 @@ func mergeMounts(a, b []ServiceMountConfig) []ServiceMountConfig {
 	return out
 }
 
-func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
-	svcName := cfg.ServiceName
+func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
+	svcName := args.ServiceName
 	if svcName == "" {
 		var err error
 		svcName, err = findDefaultService(e.config.Paths.Config)

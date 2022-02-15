@@ -16,6 +16,7 @@ type ServiceConfig struct {
 	Defaults  ServiceDefaultsConfig `yaml:"defaults"`
 
 	Processes map[string]ServiceProcessConfig `yaml:"processes"`
+	Tasks     map[string]ServiceTaskConfig    `yaml:"tasks"`
 }
 
 type ServiceDefaultsConfig struct {
@@ -40,6 +41,15 @@ type ServiceProcessConfig struct {
 	Env      map[string]string    `yaml:"env"`
 	Mounts   []ServiceMountConfig `yaml:"mounts"`
 	Caddy    ProcessCaddyConfig   `yaml:"caddy"`
+}
+
+type ServiceTaskConfig struct {
+	Image       string               `yaml:"image"`
+	ImageTag    string               `yaml:"imageTag"`
+	Command     []string             `yaml:"command"`
+	Interactive bool                 `yaml:"interactive"`
+	Env         map[string]string    `yaml:"env"`
+	Mounts      []ServiceMountConfig `yaml:"mounts"`
 }
 
 var (

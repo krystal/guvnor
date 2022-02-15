@@ -1,12 +1,17 @@
 package main
 
 import (
-	"fmt"
+	"context"
 
+	"github.com/krystal/guvnor"
 	"github.com/spf13/cobra"
 )
 
-func newRunCmd() *cobra.Command {
+type taskRunner interface {
+	RunTask(ctx context.Context, args guvnor.RunTaskArgs) error
+}
+
+func newRunCmd(tr taskRunner) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [service] [task]",
 		Short: "Run a task for a given service.",
@@ -23,27 +28,10 @@ func newRunCmd() *cobra.Command {
 			taskName = args[0]
 		}
 
-		if serviceName == "" {
-			_, err := fmt.Fprintf(
-				cmd.OutOrStdout(),
-				"running %s on the default service",
-				taskName,
-			)
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err := fmt.Fprintf(
-				cmd.OutOrStdout(),
-				"running %s on %s",
-				taskName, serviceName,
-			)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
+		return tr.RunTask(cmd.Context(), guvnor.RunTaskArgs{
+			ServiceName: serviceName,
+			TaskName:    taskName,
+		})
 	}
 
 	return cmd

@@ -8,7 +8,7 @@ import (
 )
 
 type deployer interface {
-	Deploy(ctx context.Context, cfg guvnor.DeployConfig) error
+	Deploy(ctx context.Context, cfg guvnor.DeployArgs) error
 }
 
 func newDeployCmd(d deployer) *cobra.Command {
@@ -30,7 +30,7 @@ func newDeployCmd(d deployer) *cobra.Command {
 			serviceName = args[0]
 		}
 
-		return d.Deploy(cmd.Context(), guvnor.DeployConfig{
+		return d.Deploy(cmd.Context(), guvnor.DeployArgs{
 			ServiceName: serviceName,
 			Tag:         *tagFlag,
 		})
