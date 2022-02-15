@@ -33,7 +33,7 @@ alt="GitHub issues">
 
 ---
 
-**WARNING:** This product is currently unstable ! We do not recommend it's use
-for production deployments.
+**WARNING:** This product is currently unstable ! We do not recommend its use
+in production deployments.
 
 ---
