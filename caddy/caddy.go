@@ -251,7 +251,7 @@ func (cm *Manager) ConfigureBackend(
 	hostNames []string,
 	ports []string,
 ) error {
-	cm.Log.Debug("configuring caddy for backend",
+	cm.Log.Info("configuring caddy for backend",
 		zap.String("backend", backendName),
 		zap.Strings("hostnames", hostNames),
 		zap.Strings("ports", ports),
@@ -348,7 +348,6 @@ func (cm *Manager) doRequest(ctx context.Context, method string, path *url.URL, 
 			if err != nil {
 				return fmt.Errorf("marshalling body: %w", err)
 			}
-			cm.Log.Info("sending", zap.String("data", string(data)))
 			bodyToSend = bytes.NewBuffer(data)
 		}
 	}

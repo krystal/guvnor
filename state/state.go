@@ -16,7 +16,7 @@ type FileBasedStore struct {
 }
 
 type ServiceState struct {
-	DeploymentID int `json:"lastDeploymentId"`
+	DeploymentID int `json:"deploymentID"`
 }
 
 func (fbs *FileBasedStore) servicePath(service string) string {
