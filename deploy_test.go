@@ -6,6 +6,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_containerFullName(t *testing.T) {
+	serviceName := "foo"
+	deploymentID := 3
+	processName := "web"
+	count := 0
+
+	got := containerFullName(serviceName, deploymentID, processName, count)
+	assert.Equal(t, "foo-web-3-0", got)
+}
+
 func Test_mergeEnv(t *testing.T) {
 	tests := []struct {
 		name string
