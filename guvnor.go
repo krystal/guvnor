@@ -22,18 +22,7 @@ type Engine struct {
 	state  *state.FileBasedStore
 }
 
-func NewEngine(log *zap.Logger, docker *client.Client) *Engine {
-	// TODO: Load this from disk
-	cfg := EngineConfig{
-		Caddy: caddy.Config{
-			Image: "docker.io/library/caddy:2.4.6-alpine",
-		},
-		Paths: PathsConfig{
-			Config: "./local/services",
-			State:  "./local/state",
-		},
-	}
-
+func NewEngine(log *zap.Logger, docker *client.Client, cfg EngineConfig) *Engine {
 	return &Engine{
 		log:    log,
 		docker: docker,

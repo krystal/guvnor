@@ -38,10 +38,15 @@ func main() {
 
 		dockerClient, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
-			goLog.Fatalf("failed to connect to docker")
+			goLog.Fatalf("failed to connect to docker: %s", err)
 		}
 
-		e = guvnor.NewEngine(log, dockerClient)
+		cfg, err := guvnor.LoadConfig("")
+		if err != nil {
+			goLog.Fatalf("failed to load config: %s", err)
+		}
+
+		e = guvnor.NewEngine(log, dockerClient, *cfg)
 	}
 
 	deployCmd := newDeployCmd(e)
