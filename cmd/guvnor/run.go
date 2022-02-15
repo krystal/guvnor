@@ -14,7 +14,7 @@ type taskRunner interface {
 func newRunCmd(tr taskRunner) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [service] [task]",
-		Short: "Run a task for a given service.",
+		Short: "Run a task for a given service",
 		Args:  cobra.RangeArgs(1, 2),
 	}
 
