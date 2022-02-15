@@ -6,24 +6,29 @@ import (
 	"fmt"
 	"os"
 	"path"
+
+	"go.uber.org/zap"
 )
 
 type FileBasedStore struct {
 	RootPath string
+	Log      *zap.Logger
 }
 
 type ServiceState struct {
-	LastDeploymentID int `json:"lastDeploymentId"`
+	DeploymentID int `json:"lastDeploymentId"`
+}
+
+func (fbs *FileBasedStore) servicePath(service string) string {
+	return path.Join(fbs.RootPath, fmt.Sprintf("%s.json", service))
 }
 
 func (fbs *FileBasedStore) LoadServiceState(service string) (*ServiceState, error) {
-	fullPath := path.Join(fbs.RootPath, fmt.Sprintf("%s.json", service))
-
-	data, err := os.ReadFile(fullPath)
+	data, err := os.ReadFile(fbs.servicePath(service))
 	if errors.Is(err, os.ErrNotExist) {
 		// Return default state
 		return &ServiceState{
-			LastDeploymentID: 0,
+			DeploymentID: 0,
 		}, nil
 	} else if err != nil {
 		return nil, err
@@ -37,6 +42,33 @@ func (fbs *FileBasedStore) LoadServiceState(service string) (*ServiceState, erro
 	return out, nil
 }
 
-func (fbs *FileBasedStore) SetDeploymentID(service string, deploymentID int) error {
+func (fbs *FileBasedStore) SaveServiceState(service string, state *ServiceState) error {
+	data, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(fbs.servicePath(service), data, 0o644)
+}
+
+func (fbs *FileBasedStore) Purge() error {
+	fbs.Log.Debug("purging state")
+	files, err := os.ReadDir(fbs.RootPath)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		fullPath := path.Join(fbs.RootPath, file.Name())
+		fbs.Log.Debug("purging file", zap.String("path", fullPath))
+		if err := os.Remove(fullPath); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

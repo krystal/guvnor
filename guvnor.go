@@ -3,6 +3,7 @@ package guvnor
 import (
 	"github.com/docker/docker/client"
 	"github.com/krystal/guvnor/caddy"
+	"github.com/krystal/guvnor/state"
 	"go.uber.org/zap"
 )
 
@@ -18,6 +19,7 @@ type Engine struct {
 	docker *client.Client
 	config EngineConfig
 	caddy  *caddy.Manager
+	state  *state.FileBasedStore
 }
 
 func NewEngine(log *zap.Logger, docker *client.Client) *Engine {
@@ -28,6 +30,7 @@ func NewEngine(log *zap.Logger, docker *client.Client) *Engine {
 		},
 		Paths: PathsConfig{
 			Config: "./local/services",
+			State:  "./local/state",
 		},
 	}
 
@@ -42,6 +45,10 @@ func NewEngine(log *zap.Logger, docker *client.Client) *Engine {
 			ContainerLabels: map[string]string{
 				managedLabel: "1",
 			},
+		},
+		state: &state.FileBasedStore{
+			RootPath: cfg.Paths.State,
+			Log:      log.Named("state"),
 		},
 	}
 }

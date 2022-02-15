@@ -70,11 +70,17 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 	}
 	e.log.Debug("svcCfg", zap.Any("cfg", svcCfg))
 
+	svcState, err := e.state.LoadServiceState(svcName)
+	if err != nil {
+		return err
+	}
+	svcState.DeploymentID += 1
+
 	if err := e.caddy.Init(ctx); err != nil {
 		return err
 	}
 
-	deploymentID := 5 // TODO: Fetch/store this
+	deploymentID := svcState.DeploymentID
 	for processName, process := range svcCfg.Processes {
 		e.log.Debug("deploying process",
 			zap.String("process", processName),
@@ -232,9 +238,8 @@ func (e *Engine) Deploy(ctx context.Context, cfg DeployConfig) error {
 			}
 		}
 	}
-
 	// TODO: Tidy up any processes/containers that may have been removed from
 	// the spec.
 
-	return nil
+	return e.state.SaveServiceState(svcName, svcState)
 }

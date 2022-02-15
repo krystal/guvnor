@@ -37,5 +37,5 @@ func (e *Engine) Purge(ctx context.Context) error {
 		}
 	}
 
-	return nil
+	return e.state.Purge()
 }
