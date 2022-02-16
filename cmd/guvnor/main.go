@@ -62,7 +62,7 @@ func main() {
 		newPurgeCmd(eProv),
 		newRunCmd(eProv),
 		newStatusCmd(),
-		newInstallCmd(),
+		newInitCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

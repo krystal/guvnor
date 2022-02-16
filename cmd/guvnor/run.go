@@ -7,7 +7,7 @@ import (
 
 func newRunCmd(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "run [service] [task]",
+		Use:   "run [service] <task>",
 		Short: "Run a task for a given service",
 		Args:  cobra.RangeArgs(1, 2),
 	}

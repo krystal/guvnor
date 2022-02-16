@@ -12,10 +12,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func newInstallCmd() *cobra.Command {
+func newInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "install",
-		Short: "Installs Guvnor on a host, with a default configuration",
+		Use:   "init",
+		Short: "Initialises Guvnor on a host, with a default configuration",
 		Args:  cobra.NoArgs,
 	}
 
