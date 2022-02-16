@@ -45,7 +45,7 @@ in production deployments.
 These manual steps are temporary.
 
 1. Download the binary from the releases page, or compile from source.
-2. Create `/etc/guvna` and a `/etc/guvna/config.yaml` similar to:
+2. Create `/etc/guvnor` and a `/etc/guvnor/config.yaml` similar to:
 ```yaml
 caddy:
   image: docker.io/library/caddy:2.4.6-alpine

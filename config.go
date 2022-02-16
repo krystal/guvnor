@@ -20,7 +20,7 @@ type PathsConfig struct {
 }
 
 func LoadConfig(pathOverride string) (*EngineConfig, error) {
-	path := "/etc/guvna/config.yaml"
+	path := "/etc/guvnor/config.yaml"
 	if pathOverride != "" {
 		path = pathOverride
 	}
