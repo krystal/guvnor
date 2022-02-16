@@ -89,26 +89,6 @@ func findDefaultService(configPath string) (string, error) {
 	return serviceName, nil
 }
 
-func loadServiceConfig(
-	configPath string,
-	serviceName string,
-) (*ServiceConfig, error) {
-	svcPath := path.Join(configPath, fmt.Sprintf("%s.yaml", serviceName))
-	bytes, err := os.ReadFile(svcPath)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg := &ServiceConfig{}
-	if err := yaml.Unmarshal(bytes, cfg); err != nil {
-		return nil, err
-	}
-
-	cfg.Name = serviceName
-
-	return cfg, nil
-}
-
 func (e *Engine) loadServiceConfig(serviceName string) (*ServiceConfig, error) {
 	if serviceName == "" {
 		var err error
@@ -122,5 +102,21 @@ func (e *Engine) loadServiceConfig(serviceName string) (*ServiceConfig, error) {
 		)
 	}
 
-	return loadServiceConfig(e.config.Paths.Config, serviceName)
+	svcPath := path.Join(
+		e.config.Paths.Config,
+		fmt.Sprintf("%s.yaml", serviceName),
+	)
+	bytes, err := os.ReadFile(svcPath)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &ServiceConfig{}
+	if err := yaml.Unmarshal(bytes, cfg); err != nil {
+		return nil, err
+	}
+
+	cfg.Name = serviceName
+
+	return cfg, nil
 }
