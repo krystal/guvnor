@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/pkg/stdcopy"
 	"go.uber.org/zap"
 )
 
@@ -32,8 +35,6 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 		// TODO: support interactive :)
 		return errors.New("interactive not yet supported")
 	}
-
-	e.log.Debug("loaded task", zap.Strings("cmd", task.Command))
 
 	image := fmt.Sprintf(
 		"%s:%s",
@@ -80,7 +81,10 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 		time.Now().Unix(),
 	)
 
-	_, err = e.docker.ContainerCreate(
+	e.log.Info("creating container",
+		zap.String("taskRun", fullName),
+	)
+	createRes, err := e.docker.ContainerCreate(
 		ctx,
 		&container.Config{
 			Cmd:   task.Command,
@@ -103,5 +107,49 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 		return err
 	}
 
-	return nil
+	e.log.Info("starting task run container",
+		zap.String("taskRun", fullName),
+	)
+	err = e.docker.ContainerStart(ctx, createRes.ID, types.ContainerStartOptions{})
+	if err != nil {
+		return err
+	}
+
+	waitChan, errChan := e.docker.ContainerWait(
+		ctx, createRes.ID, container.WaitConditionNotRunning,
+	)
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return err
+		}
+	case <-waitChan:
+	}
+
+	e.log.Info("task run complete, fetching logs",
+		zap.String("taskRun", fullName),
+	)
+	// TODO: Show these logs live
+	logs, err := e.docker.ContainerLogs(ctx, createRes.ID,
+		types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Pass this out so the CLI can handle it as it wants.
+	_, err = stdcopy.StdCopy(os.Stdout, os.Stderr, logs)
+	if err != nil {
+		return err
+	}
+
+	e.log.Info("deleting task run container",
+		zap.String("taskRun", fullName),
+	)
+	return e.docker.ContainerRemove(ctx, createRes.ID, types.ContainerRemoveOptions{
+		Force: true,
+	})
 }
