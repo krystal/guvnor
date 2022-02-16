@@ -1,17 +1,12 @@
 package main
 
 import (
-	"context"
 	"errors"
 
 	"github.com/spf13/cobra"
 )
 
-type purger interface {
-	Purge(ctx context.Context) error
-}
-
-func newPurgeCmd(p purger) *cobra.Command {
+func newPurgeCmd(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "purge",
 		Short: "Purges all containers created by Guvnor",
@@ -24,11 +19,16 @@ func newPurgeCmd(p purger) *cobra.Command {
 	)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		engine, err := eP()
+		if err != nil {
+			return err
+		}
+
 		if !*confirmFlag {
 			return errors.New("confirm flag must be specified to trigger purge")
 		}
 
-		return p.Purge(cmd.Context())
+		return engine.Purge(cmd.Context())
 	}
 
 	return cmd

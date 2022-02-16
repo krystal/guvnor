@@ -1,17 +1,11 @@
 package main
 
 import (
-	"context"
-
 	"github.com/krystal/guvnor"
 	"github.com/spf13/cobra"
 )
 
-type taskRunner interface {
-	RunTask(ctx context.Context, args guvnor.RunTaskArgs) error
-}
-
-func newRunCmd(tr taskRunner) *cobra.Command {
+func newRunCmd(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [service] [task]",
 		Short: "Run a task for a given service",
@@ -19,6 +13,11 @@ func newRunCmd(tr taskRunner) *cobra.Command {
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		engine, err := eP()
+		if err != nil {
+			return err
+		}
+
 		serviceName := ""
 		taskName := ""
 		if len(args) == 2 {
@@ -28,7 +27,7 @@ func newRunCmd(tr taskRunner) *cobra.Command {
 			taskName = args[0]
 		}
 
-		return tr.RunTask(cmd.Context(), guvnor.RunTaskArgs{
+		return engine.RunTask(cmd.Context(), guvnor.RunTaskArgs{
 			ServiceName: serviceName,
 			TaskName:    taskName,
 		})

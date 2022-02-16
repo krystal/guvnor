@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	goLog "log"
 	"os"
 
@@ -28,33 +29,41 @@ func newRootCmd(subCommands ...*cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func main() {
-	var e *guvnor.Engine
-	{ // TODO: Only set this up if the command needs it
-		log, err := zap.NewDevelopment()
-		if err != nil {
-			goLog.Fatalf("failed to setup logger: %s", err)
-		}
-
+func stdEngineProvider(log *zap.Logger) func() (*guvnor.Engine, error) {
+	return func() (*guvnor.Engine, error) {
 		dockerClient, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
-			goLog.Fatalf("failed to connect to docker: %s", err)
+			return nil, fmt.Errorf("connecting to docker: %w", err)
 		}
 
 		// TODO: Add a way to override which config is loaded :)
 		cfg, err := guvnor.LoadConfig("")
 		if err != nil {
-			goLog.Fatalf("failed to load config: %s", err)
+			return nil, fmt.Errorf("load config: %w", err)
 		}
 
-		e = guvnor.NewEngine(log, dockerClient, *cfg)
+		e := guvnor.NewEngine(log, dockerClient, *cfg)
+
+		return e, nil
+	}
+}
+
+type engineProvider = func() (*guvnor.Engine, error)
+
+func main() {
+	log, err := zap.NewDevelopment()
+	if err != nil {
+		goLog.Fatalf("failed to setup logger: %s", err)
 	}
 
-	deployCmd := newDeployCmd(e)
-	purgeCmd := newPurgeCmd(e)
-	runCmd := newRunCmd(e)
-	statusCmd := newStatusCmd()
-	root := newRootCmd(deployCmd, purgeCmd, runCmd, statusCmd)
+	eProv := stdEngineProvider(log)
+	root := newRootCmd(
+		newDeployCmd(eProv),
+		newPurgeCmd(eProv),
+		newRunCmd(eProv),
+		newStatusCmd(),
+		newInstallCmd(),
+	)
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
