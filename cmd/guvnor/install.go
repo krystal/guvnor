@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path"
 
@@ -19,8 +21,16 @@ func newInstallCmd() *cobra.Command {
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		configPath := "/etc/guvnor"
+		configFilePath := path.Join(configPath, "config.yaml")
 		servicesPath := path.Join(configPath, "services")
 		statePath := "/var/lib/guvnor"
+
+		_, err := os.Stat(configFilePath)
+		if err == nil {
+			return errors.New("guvnor install detected")
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
 
 		defaultConfig := guvnor.EngineConfig{
 			Caddy: caddy.Config{
@@ -32,7 +42,7 @@ func newInstallCmd() *cobra.Command {
 			},
 			Paths: guvnor.PathsConfig{
 				Config: servicesPath,
-				State:  "/var/lib/guvnor",
+				State:  statePath,
 			},
 		}
 
@@ -53,7 +63,16 @@ func newInstallCmd() *cobra.Command {
 			return err
 		}
 
-		return os.WriteFile("/etc/guvnor/config.yaml", configBytes, 0o644)
+		if err := os.WriteFile(configFilePath, configBytes, 0o644); err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintln(
+			cmd.OutOrStderr(),
+			"Guvnor succesfully initialized",
+		)
+
+		return err
 	}
 
 	return cmd
