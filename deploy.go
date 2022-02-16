@@ -3,8 +3,6 @@ package guvnor
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -97,16 +95,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 				svc.Defaults.Image,
 				svc.Defaults.ImageTag,
 			)
-
-			// Pulls the image if not already in the local cache
-			pullStream, err := e.docker.ImagePull(
-				ctx, image, types.ImagePullOptions{},
-			)
-			if err != nil {
-				return err
-			}
-			defer pullStream.Close()
-			if _, err := io.Copy(os.Stdout, pullStream); err != nil {
+			if err := e.pullImage(ctx, image); err != nil {
 				return err
 			}
 

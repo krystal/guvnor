@@ -10,6 +10,7 @@ import (
 const (
 	serviceLabel    = "io.k.guvnor.service"
 	processLabel    = "io.k.guvnor.process"
+	taskLabel       = "io.k.guvnor.task"
 	deploymentLabel = "io.k.guvnor.deployment"
 	managedLabel    = "io.k.guvnor.managed"
 )
