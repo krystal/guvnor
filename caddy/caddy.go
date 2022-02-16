@@ -149,6 +149,9 @@ func (cm *Manager) Init(ctx context.Context) error {
 		},
 		&container.HostConfig{
 			NetworkMode: "host",
+			RestartPolicy: container.RestartPolicy{
+				Name: "always",
+			},
 		},
 		&network.NetworkingConfig{},
 		nil,

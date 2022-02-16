@@ -166,6 +166,9 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 							},
 						},
 					},
+					RestartPolicy: container.RestartPolicy{
+						Name: "always",
+					},
 					Mounts: mounts,
 				},
 				&network.NetworkingConfig{},
