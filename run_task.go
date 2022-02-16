@@ -28,7 +28,7 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 		return errors.New("specified task cannot be found in config")
 	}
 
-	if task.Interactive == true {
+	if task.Interactive {
 		// TODO: support interactive :)
 		return errors.New("interactive not yet supported")
 	}
