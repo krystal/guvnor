@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -106,4 +107,20 @@ func loadServiceConfig(
 	cfg.Name = serviceName
 
 	return cfg, nil
+}
+
+func (e *Engine) loadServiceConfig(serviceName string) (*ServiceConfig, error) {
+	if serviceName == "" {
+		var err error
+		serviceName, err = findDefaultService(e.config.Paths.Config)
+		if err != nil {
+			return nil, err
+		}
+		e.log.Debug(
+			"no service specified, defaulting",
+			zap.String("default", serviceName),
+		)
+	}
+
+	return loadServiceConfig(e.config.Paths.Config, serviceName)
 }

@@ -60,26 +60,12 @@ func mergeMounts(a, b []ServiceMountConfig) []ServiceMountConfig {
 }
 
 func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
-	svcName := args.ServiceName
-	if svcName == "" {
-		var err error
-		svcName, err = findDefaultService(e.config.Paths.Config)
-		if err != nil {
-			return err
-		}
-		e.log.Debug(
-			"no service name provided, defaulting",
-			zap.String("default", svcName),
-		)
-	}
-
-	svcCfg, err := loadServiceConfig(e.config.Paths.Config, svcName)
+	svc, err := e.loadServiceConfig(args.ServiceName)
 	if err != nil {
 		return err
 	}
-	e.log.Debug("svcCfg", zap.Any("cfg", svcCfg))
 
-	svcState, err := e.state.LoadServiceState(svcName)
+	svcState, err := e.state.LoadServiceState(svc.Name)
 	if err != nil {
 		return err
 	}
@@ -90,26 +76,26 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 	}
 
 	deploymentID := svcState.DeploymentID
-	for processName, process := range svcCfg.Processes {
+	for processName, process := range svc.Processes {
 		e.log.Debug("deploying process",
 			zap.String("process", processName),
-			zap.String("service", svcName),
+			zap.String("service", svc.Name),
 		)
 
 		newPorts := []string{} // TODO: Fetch these as we create containers
 		for i := 0; i < int(process.Quantity); i++ {
-			fullName := containerFullName(svcName, deploymentID, processName, i)
+			fullName := containerFullName(svc.Name, deploymentID, processName, i)
 			e.log.Debug("deploying process instance",
 				zap.String("process", processName),
-				zap.String("service", svcName),
+				zap.String("service", svc.Name),
 				zap.Int("i", i),
 				zap.String("containerName", fullName),
 			)
 
 			image := fmt.Sprintf(
 				"%s:%s",
-				svcCfg.Defaults.Image,
-				svcCfg.Defaults.ImageTag,
+				svc.Defaults.Image,
+				svc.Defaults.ImageTag,
 			)
 
 			// Pulls the image if not already in the local cache
@@ -128,11 +114,11 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 
 			// Merge default, process and guvnor provided environment
 			env := mergeEnv(
-				svcCfg.Defaults.Env,
+				svc.Defaults.Env,
 				process.Env,
 				map[string]string{
 					"PORT":              containerPort,
-					"GUVNOR_SERVICE":    svcName,
+					"GUVNOR_SERVICE":    svc.Name,
 					"GUVNOR_PROCESS":    processName,
 					"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
 				},
@@ -141,7 +127,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 			// Merge mounts and convert to docker API mounts
 			mounts := []mount.Mount{}
 			for _, mnt := range mergeMounts(
-				svcCfg.Defaults.Mounts, process.Mounts,
+				svc.Defaults.Mounts, process.Mounts,
 			) {
 				mounts = append(mounts, mount.Mount{
 					Type:   mount.TypeBind,
@@ -157,7 +143,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 					Image: image,
 					Env:   env,
 					Labels: map[string]string{
-						serviceLabel:    svcName,
+						serviceLabel:    svc.Name,
 						processLabel:    processName,
 						deploymentLabel: fmt.Sprintf("%d", deploymentID),
 						managedLabel:    "1",
@@ -208,7 +194,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 			// TODO: Verify it comes online
 		}
 
-		caddyBackendName := fmt.Sprintf("%s-%s", svcName, processName)
+		caddyBackendName := fmt.Sprintf("%s-%s", svc.Name, processName)
 		if len(process.Caddy.Hostnames) > 0 {
 			// Sync caddy configuration with new ports
 			err = e.caddy.ConfigureBackend(
@@ -230,7 +216,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 			listToShutdown, err := e.docker.ContainerList(ctx, types.ContainerListOptions{
 				All: true,
 				Filters: filters.NewArgs(
-					filters.Arg("label", fmt.Sprintf("%s=%s", serviceLabel, svcName)),
+					filters.Arg("label", fmt.Sprintf("%s=%s", serviceLabel, svc.Name)),
 					filters.Arg("label", fmt.Sprintf("%s=%s", processLabel, processName)),
 					filters.Arg(
 						"label",
@@ -245,7 +231,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 			for _, containerToShutdown := range listToShutdown {
 				e.log.Debug("removing previous deployment container",
 					zap.String("process", processName),
-					zap.String("service", svcName),
+					zap.String("service", svc.Name),
 					zap.String("container", containerToShutdown.ID),
 				)
 				err = e.docker.ContainerRemove(
@@ -264,5 +250,5 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 	// TODO: Tidy up any processes/containers that may have been removed from
 	// the spec.
 
-	return e.state.SaveServiceState(svcName, svcState)
+	return e.state.SaveServiceState(svc.Name, svcState)
 }

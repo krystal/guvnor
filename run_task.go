@@ -13,26 +13,12 @@ type RunTaskArgs struct {
 }
 
 func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
-	svcName := args.ServiceName
-	if svcName == "" {
-		var err error
-		svcName, err = findDefaultService(e.config.Paths.Config)
-		if err != nil {
-			return err
-		}
-		e.log.Debug(
-			"no service name provided, defaulting",
-			zap.String("default", svcName),
-		)
-	}
-
-	svcCfg, err := loadServiceConfig(e.config.Paths.Config, svcName)
+	svc, err := e.loadServiceConfig(args.ServiceName)
 	if err != nil {
 		return err
 	}
-	e.log.Debug("svcCfg", zap.Any("cfg", svcCfg))
 
-	task, ok := svcCfg.Tasks[args.TaskName]
+	task, ok := svc.Tasks[args.TaskName]
 	if !ok {
 		return errors.New("specified task cannot be found in config")
 	}
