@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -16,7 +17,8 @@ type FileBasedStore struct {
 }
 
 type ServiceState struct {
-	DeploymentID int `json:"deploymentID"`
+	DeploymentID   int       `json:"deploymentID"`
+	LastDeployedAt time.Time `json:"lastDeployedAt`
 }
 
 func (fbs *FileBasedStore) servicePath(service string) string {

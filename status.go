@@ -3,6 +3,7 @@ package guvnor
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -24,8 +25,9 @@ type ProcessStatus struct {
 }
 
 type StatusRes struct {
-	DeploymentID int
-	Processes    map[string]ProcessStatus
+	DeploymentID   int
+	LastDeployedAt time.Time
+	Processes      map[string]ProcessStatus
 }
 
 func (e *Engine) Status(
@@ -73,7 +75,8 @@ func (e *Engine) Status(
 	}
 
 	return &StatusRes{
-		DeploymentID: svcState.DeploymentID,
-		Processes:    processStatuses,
+		DeploymentID:   svcState.DeploymentID,
+		LastDeployedAt: svcState.LastDeployedAt,
+		Processes:      processStatuses,
 	}, nil
 }

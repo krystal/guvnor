@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/krystal/guvnor"
 	"github.com/spf13/cobra"
@@ -39,6 +40,11 @@ func newStatusCmd(eP engineProvider) *cobra.Command {
 			cmd.OutOrStdout(),
 			"Deployment count: %d\n",
 			res.DeploymentID,
+		)
+		fmt.Fprintf(
+			cmd.OutOrStdout(),
+			"Last deployed at: %s\n",
+			res.LastDeployedAt.Format(time.RFC1123),
 		)
 		for processName, process := range res.Processes {
 			fmt.Fprintf(cmd.OutOrStdout(), "---- Process: %s ----\n", processName)

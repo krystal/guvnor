@@ -3,6 +3,7 @@ package guvnor
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -68,6 +69,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 		return err
 	}
 	svcState.DeploymentID += 1
+	svcState.LastDeployedAt = time.Now()
 
 	if err := e.caddy.Init(ctx); err != nil {
 		return err
