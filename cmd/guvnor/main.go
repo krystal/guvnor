@@ -61,7 +61,7 @@ func main() {
 		newDeployCmd(eProv),
 		newPurgeCmd(eProv),
 		newRunCmd(eProv),
-		newStatusCmd(),
+		newStatusCmd(eProv),
 		newInitCmd(),
 	)
 
