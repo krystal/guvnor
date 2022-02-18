@@ -17,6 +17,7 @@ processes:
     command: ["bin/rails", "server"]
     quantity: 1
     restartMode: standard
+    privileged: true
     env:
       HOSTNAME: identity.k.io
     caddy:

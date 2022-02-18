@@ -168,7 +168,8 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 				RestartPolicy: container.RestartPolicy{
 					Name: "always",
 				},
-				Mounts: mounts,
+				Mounts:     mounts,
+				Privileged: process.Privileged,
 			}
 			if process.Network.Mode.IsHost() {
 				hostConfig.NetworkMode = "host"

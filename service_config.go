@@ -58,6 +58,9 @@ type ServiceProcessConfig struct {
 	Mounts   []ServiceMountConfig `yaml:"mounts"`
 	Caddy    ProcessCaddyConfig   `yaml:"caddy"`
 
+	// Privileged grants all capabilities to the container.
+	Privileged bool `yaml:"privileged"`
+
 	Network ProcessNetworkConfig `yaml:"network"`
 }
 
