@@ -3,6 +3,8 @@ package guvnor
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -58,6 +60,24 @@ func mergeMounts(a, b []ServiceMountConfig) []ServiceMountConfig {
 	return out
 }
 
+// findFreePort is pretty hacky way of finding ports but avoids storing state
+// for now. We may want to replace this in future.
+func findFreePort() (string, error) {
+	a, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return "", err
+	}
+
+	l, err := net.ListenTCP("tcp", a)
+	if err != nil {
+		return "", err
+	}
+	defer l.Close()
+
+	lAddr := l.Addr().(*net.TCPAddr)
+	return strconv.Itoa(lAddr.Port), nil
+}
+
 func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 	svc, err := e.loadServiceConfig(args.ServiceName)
 	if err != nil {
@@ -82,7 +102,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 			zap.String("service", svc.Name),
 		)
 
-		newPorts := []string{} // TODO: Fetch these as we create containers
+		newPorts := []string{}
 		for i := 0; i < int(process.Quantity); i++ {
 			fullName := containerFullName(svc.Name, deploymentID, processName, i)
 			e.log.Debug("deploying process instance",
@@ -101,14 +121,17 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 				return err
 			}
 
-			containerPort := "9000"
+			selectedPort, err := findFreePort()
+			if err != nil {
+				return err
+			}
 
 			// Merge default, process and guvnor provided environment
 			env := mergeEnv(
 				svc.Defaults.Env,
 				process.Env,
 				map[string]string{
-					"PORT":              containerPort,
+					"PORT":              selectedPort,
 					"GUVNOR_SERVICE":    svc.Name,
 					"GUVNOR_PROCESS":    processName,
 					"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
@@ -127,6 +150,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 				})
 			}
 
+			portProtocolBinding := selectedPort + "/tcp"
 			res, err := e.docker.ContainerCreate(
 				ctx,
 				&container.Config{
@@ -140,19 +164,19 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 						managedLabel:    "1",
 					},
 					ExposedPorts: nat.PortSet{
-						nat.Port(containerPort + "/tcp"): struct{}{},
+						nat.Port(portProtocolBinding): struct{}{},
 					},
 				},
 				&container.HostConfig{
 					// TODO: Don't use port bindings if host networking mode
 					PortBindings: nat.PortMap{
-						nat.Port(containerPort + "/tcp"): []nat.PortBinding{
+						nat.Port(portProtocolBinding): []nat.PortBinding{
 							{
 								// Right now, select a random port on the host.
 								// Eventually we need to pre-select this in
 								// order to allow host networking to work
 								// nicely :3
-								HostPort: "0",
+								HostPort: portProtocolBinding,
 								HostIP:   "127.0.0.1",
 							},
 						},
@@ -177,13 +201,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 				return err
 			}
 
-			inspectRes, err := e.docker.ContainerInspect(ctx, res.ID)
-			if err != nil {
-				return err
-			}
-
-			randomHostPort := inspectRes.NetworkSettings.Ports[nat.Port(containerPort+"/tcp")][0].HostPort
-			newPorts = append(newPorts, randomHostPort)
+			newPorts = append(newPorts, selectedPort)
 
 			// TODO: Verify it comes online
 		}

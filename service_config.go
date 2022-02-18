@@ -36,12 +36,29 @@ type ProcessCaddyConfig struct {
 	Hostnames []string `yaml:"hostnames"`
 }
 
+type NetworkMode string
+
+var (
+	NetworkModeDefault NetworkMode = ""
+	NetworkModeHost    NetworkMode = "host"
+)
+
+func (nm NetworkMode) IsHost() bool {
+	return nm == NetworkModeHost
+}
+
+type ProcessNetworkConfig struct {
+	Mode NetworkMode `yaml:"mode"`
+}
+
 type ServiceProcessConfig struct {
 	Command  []string             `yaml:"command"`
 	Quantity uint                 `yaml:"quantity"`
 	Env      map[string]string    `yaml:"env"`
 	Mounts   []ServiceMountConfig `yaml:"mounts"`
 	Caddy    ProcessCaddyConfig   `yaml:"caddy"`
+
+	Network ProcessNetworkConfig `yaml:"network"`
 }
 
 type ServiceTaskConfig struct {

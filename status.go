@@ -61,7 +61,7 @@ func (e *Engine) Status(
 		}
 
 		for _, container := range containers {
-			containerProcess, _ := container.Labels[processLabel]
+			containerProcess := container.Labels[processLabel]
 			if containerProcess == processName {
 				ps.Containers = append(ps.Containers, ProcessContainer{
 					ContainerName: container.Names[0],
