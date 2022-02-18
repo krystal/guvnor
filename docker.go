@@ -78,8 +78,6 @@ func (e *Engine) pullImage(ctx context.Context, image string) error {
 		)
 	}
 
-	e.log.Info("auth", zap.String("auth", authStr))
-
 	pullStream, err := e.docker.ImagePull(
 		ctx, image, types.ImagePullOptions{
 			RegistryAuth: authStr,
