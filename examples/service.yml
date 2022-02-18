@@ -1,7 +1,5 @@
 # /etc/guvnor/services/identity.yaml
 
-startPort: 5000
-
 defaults:
   image: ghcr.io/krystal/identity
   imageTag: latest
