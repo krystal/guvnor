@@ -151,41 +151,42 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 			}
 
 			portProtocolBinding := selectedPort + "/tcp"
+			containerConfig := &container.Config{
+				Cmd:   process.Command,
+				Image: image,
+				Env:   env,
+				Labels: map[string]string{
+					serviceLabel:    svc.Name,
+					processLabel:    processName,
+					deploymentLabel: fmt.Sprintf("%d", deploymentID),
+					managedLabel:    "1",
+				},
+				ExposedPorts: nat.PortSet{},
+			}
+			hostConfig := &container.HostConfig{
+				PortBindings: nat.PortMap{},
+				RestartPolicy: container.RestartPolicy{
+					Name: "always",
+				},
+				Mounts: mounts,
+			}
+			if process.Network.Mode.IsHost() {
+				hostConfig.NetworkMode = "host"
+			} else {
+				natPort := nat.Port(portProtocolBinding)
+				hostConfig.PortBindings[natPort] = []nat.PortBinding{
+					{
+						HostPort: portProtocolBinding,
+						HostIP:   "127.0.0.1",
+					},
+				}
+				containerConfig.ExposedPorts[natPort] = struct{}{}
+			}
+
 			res, err := e.docker.ContainerCreate(
 				ctx,
-				&container.Config{
-					Cmd:   process.Command,
-					Image: image,
-					Env:   env,
-					Labels: map[string]string{
-						serviceLabel:    svc.Name,
-						processLabel:    processName,
-						deploymentLabel: fmt.Sprintf("%d", deploymentID),
-						managedLabel:    "1",
-					},
-					ExposedPorts: nat.PortSet{
-						nat.Port(portProtocolBinding): struct{}{},
-					},
-				},
-				&container.HostConfig{
-					// TODO: Don't use port bindings if host networking mode
-					PortBindings: nat.PortMap{
-						nat.Port(portProtocolBinding): []nat.PortBinding{
-							{
-								// Right now, select a random port on the host.
-								// Eventually we need to pre-select this in
-								// order to allow host networking to work
-								// nicely :3
-								HostPort: portProtocolBinding,
-								HostIP:   "127.0.0.1",
-							},
-						},
-					},
-					RestartPolicy: container.RestartPolicy{
-						Name: "always",
-					},
-					Mounts: mounts,
-				},
+				containerConfig,
+				hostConfig,
 				&network.NetworkingConfig{},
 				nil,
 				fullName,
