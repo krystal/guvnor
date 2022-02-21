@@ -17,11 +17,11 @@ type HTTPHeader struct {
 }
 
 type HTTPCheck struct {
-	Host           string       `yaml:"host"`
-	ExpectedStatus int          `yaml:"expectedStatus"`
-	Path           string       `yaml:"path"`
-	Headers        []HTTPHeader `yaml:"headers"`
-	// Timeout        int          `yaml:"timeout"`
+	Host           string        `yaml:"host"`
+	ExpectedStatus int           `yaml:"expectedStatus"`
+	Path           string        `yaml:"path"`
+	Headers        []HTTPHeader  `yaml:"headers"`
+	Timeout        time.Duration `yaml:"timeout"`
 }
 
 func (hc *HTTPCheck) Test(ctx context.Context) error {
@@ -30,6 +30,16 @@ func (hc *HTTPCheck) Test(ctx context.Context) error {
 		Host:   hc.Host,
 		Path:   hc.Path,
 	}
+
+	timeout := time.Second * 5
+	if hc.Timeout != 0 {
+		timeout = hc.Timeout
+	}
+
+	var cancel func()
+	ctx, cancel = context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return err
