@@ -25,6 +25,7 @@ type ServiceDefaultsConfig struct {
 	ImageTag string               `yaml:"imageTag"`
 	Env      map[string]string    `yaml:"env"`
 	Mounts   []ServiceMountConfig `yaml:"mounts"`
+	Network  NetworkConfig        `yaml:"network"`
 }
 
 type ServiceMountConfig struct {
@@ -47,8 +48,8 @@ func (nm NetworkMode) IsHost() bool {
 	return nm == NetworkModeHost
 }
 
-type ProcessNetworkConfig struct {
-	Mode NetworkMode `yaml:"mode"`
+type NetworkConfig struct {
+	Mode *NetworkMode `yaml:"mode"`
 }
 
 type ServiceProcessConfig struct {
@@ -61,11 +62,7 @@ type ServiceProcessConfig struct {
 	// Privileged grants all capabilities to the container.
 	Privileged bool `yaml:"privileged"`
 
-	Network ProcessNetworkConfig `yaml:"network"`
-}
-
-type TaskNetworkConfig struct {
-	Mode NetworkMode `yaml:"mode"`
+	Network NetworkConfig `yaml:"network"`
 }
 
 type ServiceTaskConfig struct {
@@ -75,7 +72,7 @@ type ServiceTaskConfig struct {
 	Interactive bool                 `yaml:"interactive"`
 	Env         map[string]string    `yaml:"env"`
 	Mounts      []ServiceMountConfig `yaml:"mounts"`
-	Network     TaskNetworkConfig    `yaml:"network"`
+	Network     NetworkConfig        `yaml:"network"`
 }
 
 var (

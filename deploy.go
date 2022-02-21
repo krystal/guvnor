@@ -171,7 +171,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 				Mounts:     mounts,
 				Privileged: process.Privileged,
 			}
-			if process.Network.Mode.IsHost() {
+			if process.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
 				hostConfig.NetworkMode = "host"
 			} else {
 				natPort := nat.Port(portProtocolBinding)

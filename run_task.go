@@ -98,9 +98,10 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 	hostConfig := &container.HostConfig{
 		Mounts: mounts,
 	}
-	if task.Network.Mode.IsHost() {
+	if task.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
 		hostConfig.NetworkMode = "host"
 	}
+
 	createRes, err := e.docker.ContainerCreate(
 		ctx,
 		containerConfig,
