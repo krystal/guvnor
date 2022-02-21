@@ -45,7 +45,7 @@ func NewEngine(log *zap.Logger, docker *client.Client, cfg EngineConfig, validat
 				managedLabel: "1",
 			},
 		},
-		validate: validator.New(),
+		validate: validate,
 		state: &state.FileBasedStore{
 			RootPath: cfg.Paths.State,
 			Log:      log.Named("state"),
