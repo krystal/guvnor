@@ -1,6 +1,7 @@
 package guvnor
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path"
@@ -12,9 +13,8 @@ import (
 )
 
 type ServiceConfig struct {
-	Name      string                `yaml:"_"`
-	StartPort uint                  `yaml:"startPort"`
-	Defaults  ServiceDefaultsConfig `yaml:"defaults"`
+	Name     string                `yaml:"_"`
+	Defaults ServiceDefaultsConfig `yaml:"defaults"`
 
 	Processes map[string]ServiceProcessConfig `yaml:"processes"`
 	Tasks     map[string]ServiceTaskConfig    `yaml:"tasks"`
@@ -131,13 +131,16 @@ func (e *Engine) loadServiceConfig(serviceName string) (*ServiceConfig, error) {
 		e.config.Paths.Config,
 		fmt.Sprintf("%s.yaml", serviceName),
 	)
-	bytes, err := os.ReadFile(svcPath)
+	configData, err := os.ReadFile(svcPath)
 	if err != nil {
 		return nil, err
 	}
 
+	decoder := yaml.NewDecoder(bytes.NewBuffer(configData))
+	decoder.KnownFields(true)
+
 	cfg := &ServiceConfig{}
-	if err := yaml.Unmarshal(bytes, cfg); err != nil {
+	if err := decoder.Decode(cfg); err != nil {
 		return nil, err
 	}
 
