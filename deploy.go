@@ -103,7 +103,12 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 		)
 
 		newPorts := []string{}
-		for i := 0; i < int(process.Quantity); i++ {
+		quantity := process.Quantity
+		if quantity == 0 {
+			quantity = 1
+		}
+
+		for i := 0; i < int(quantity); i++ {
 			fullName := containerFullName(svc.Name, deploymentID, processName, i)
 			e.log.Debug("deploying process instance",
 				zap.String("process", processName),
