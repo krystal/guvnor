@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/krystal/guvnor/ready"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -172,9 +173,19 @@ func (cm *Manager) Init(ctx context.Context) error {
 
 	cm.Log.Debug("started caddy container")
 
-	// Give caddy time to start..
-	// TODO: Detect caddy coming online
-	time.Sleep(1 * time.Second)
+	check := ready.Check{
+		Frequency: time.Millisecond * 500,
+		Maximum:   20,
+		HTTP: &ready.HTTPCheck{
+			Host:           "localhost:2019",
+			Path:           "/config/",
+			ExpectedStatus: 200,
+			Timeout:        250 * time.Millisecond,
+		},
+	}
+	if err := check.Wait(ctx, cm.Log.Named("ready")); err != nil {
+		return err
+	}
 
 	defaultConfig, err := cm.defaultConfiguration()
 	if err != nil {

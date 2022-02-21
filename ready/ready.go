@@ -91,10 +91,10 @@ func (c *Check) Wait(ctx context.Context, log *zap.Logger) error {
 	for attempt := 1; attempt <= c.Maximum; attempt++ {
 		err = c.Test(ctx)
 		if err == nil {
-			log.Debug("ready check passed")
+			log.Debug("attempt passed", zap.Int("attempt", attempt))
 			return nil
 		} else {
-			log.Debug("check attempt failed",
+			log.Debug("attempt failed",
 				zap.Int("attempt", attempt),
 				zap.Int("maxAttempts", c.Maximum),
 				zap.Error(err),
