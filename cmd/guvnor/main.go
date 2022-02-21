@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/docker/docker/client"
+	"github.com/go-playground/validator/v10"
 	"github.com/krystal/guvnor"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -36,13 +37,15 @@ func stdEngineProvider(log *zap.Logger) func() (*guvnor.Engine, error) {
 			return nil, fmt.Errorf("connecting to docker: %w", err)
 		}
 
+		v := validator.New()
+
 		// TODO: Add a way to override which config is loaded :)
-		cfg, err := guvnor.LoadConfig("")
+		cfg, err := guvnor.LoadConfig(v, "")
 		if err != nil {
 			return nil, fmt.Errorf("load config: %w", err)
 		}
 
-		e := guvnor.NewEngine(log, dockerClient, *cfg)
+		e := guvnor.NewEngine(log, dockerClient, *cfg, v)
 
 		return e, nil
 	}

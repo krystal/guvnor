@@ -146,5 +146,9 @@ func (e *Engine) loadServiceConfig(serviceName string) (*ServiceConfig, error) {
 
 	cfg.Name = serviceName
 
+	if err := e.validate.Struct(cfg); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
 }

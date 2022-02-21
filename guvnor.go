@@ -2,6 +2,7 @@ package guvnor
 
 import (
 	"github.com/docker/docker/client"
+	"github.com/go-playground/validator/v10"
 	"github.com/krystal/guvnor/caddy"
 	"github.com/krystal/guvnor/state"
 	"go.uber.org/zap"
@@ -16,14 +17,22 @@ const (
 )
 
 type Engine struct {
-	log    *zap.Logger
-	docker *client.Client
-	config EngineConfig
-	caddy  *caddy.Manager
-	state  *state.FileBasedStore
+	log      *zap.Logger
+	docker   *client.Client
+	config   EngineConfig
+	caddy    *caddy.Manager
+	state    *state.FileBasedStore
+	validate *validator.Validate
 }
 
-func NewEngine(log *zap.Logger, docker *client.Client, cfg EngineConfig) *Engine {
+func NewEngine(log *zap.Logger, docker *client.Client, cfg EngineConfig, validate *validator.Validate) *Engine {
+	if validate == nil {
+		validate = validator.New()
+	}
+	if log == nil {
+		log = zap.NewNop()
+	}
+
 	return &Engine{
 		log:    log,
 		docker: docker,
@@ -36,6 +45,7 @@ func NewEngine(log *zap.Logger, docker *client.Client, cfg EngineConfig) *Engine
 				managedLabel: "1",
 			},
 		},
+		validate: validator.New(),
 		state: &state.FileBasedStore{
 			RootPath: cfg.Paths.State,
 			Log:      log.Named("state"),

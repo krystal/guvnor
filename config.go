@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/krystal/guvnor/caddy"
 	"gopkg.in/yaml.v3"
 )
@@ -15,12 +16,12 @@ type EngineConfig struct {
 
 type PathsConfig struct {
 	// Config is the path to the directory containing service configs
-	Config string `yaml:"config"`
+	Config string `yaml:"config" validate:"required"`
 	// State is the path to store state about deployments etc
-	State string `yaml:"state"`
+	State string `yaml:"state" validate:"required"`
 }
 
-func LoadConfig(pathOverride string) (*EngineConfig, error) {
+func LoadConfig(validate *validator.Validate, pathOverride string) (*EngineConfig, error) {
 	path := "/etc/guvnor/config.yaml"
 	if pathOverride != "" {
 		path = pathOverride
@@ -36,6 +37,10 @@ func LoadConfig(pathOverride string) (*EngineConfig, error) {
 
 	cfg := &EngineConfig{}
 	if err := decoder.Decode(cfg); err != nil {
+		return nil, err
+	}
+
+	if err := validate.Struct(cfg); err != nil {
 		return nil, err
 	}
 
