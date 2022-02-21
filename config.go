@@ -1,6 +1,7 @@
 package guvnor
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/krystal/guvnor/caddy"
@@ -30,8 +31,11 @@ func LoadConfig(pathOverride string) (*EngineConfig, error) {
 		return nil, err
 	}
 
+	decoder := yaml.NewDecoder(bytes.NewBuffer(data))
+	decoder.KnownFields(true)
+
 	cfg := &EngineConfig{}
-	if err := yaml.Unmarshal(data, cfg); err != nil {
+	if err := decoder.Decode(cfg); err != nil {
 		return nil, err
 	}
 
