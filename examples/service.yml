@@ -24,9 +24,9 @@ processes:
         - identity.another.domain
     readyChecks:
       frequency: 2
-      timeout: 5
       maximum: 30
       http:
+        timeout: 5
         expectedStatus: 200
         path: /login
         headers:
