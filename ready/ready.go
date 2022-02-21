@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -55,9 +56,9 @@ func (hc *HTTPCheck) Test(ctx context.Context) error {
 }
 
 type Check struct {
-	Frequency int        `yaml:"frequency"`
-	Maximum   int        `yaml:"maximum"`
-	HTTP      *HTTPCheck `yaml:"http"`
+	Frequency time.Duration `yaml:"frequency"`
+	Maximum   int           `yaml:"maximum"`
+	HTTP      *HTTPCheck    `yaml:"http"`
 }
 
 // Test runs a check
@@ -69,15 +70,18 @@ func (c *Check) Test(ctx context.Context) error {
 	return c.HTTP.Test(ctx)
 }
 
-// Wait will provide a way to run a check continously until it passes.
+// Wait will provide a way to run a check continously until it passes or the
+// maximum try threshold is passed.
 func (c *Check) Wait(ctx context.Context, log *zap.Logger) error {
-	for attempt := 1; attempt <= c.Maximum; attempt++ {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
+	t := time.NewTicker(c.Frequency)
+	defer t.Stop()
 
-		err := c.Test(ctx)
+	log.Debug("waiting for ready check to pass")
+	var err error
+	for attempt := 1; attempt <= c.Maximum; attempt++ {
+		err = c.Test(ctx)
 		if err == nil {
+			log.Debug("ready check passed")
 			return nil
 		} else {
 			log.Debug("check attempt failed",
@@ -86,7 +90,13 @@ func (c *Check) Wait(ctx context.Context, log *zap.Logger) error {
 				zap.Error(err),
 			)
 		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+		}
 	}
 
-	return errors.New("exhausted check limit, service has not come online")
+	return fmt.Errorf("exhausted retry count: %w", err)
 }
