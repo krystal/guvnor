@@ -44,8 +44,16 @@ var (
 	NetworkModeHost    NetworkMode = "host"
 )
 
-func (nm NetworkMode) IsHost() bool {
-	return nm == NetworkModeHost
+func (nm *NetworkMode) IsHost(defaultConfig *NetworkMode) bool {
+	if nm != nil {
+		return *nm == NetworkModeHost
+	}
+
+	if defaultConfig != nil {
+		return *defaultConfig == NetworkModeHost
+	}
+
+	return false
 }
 
 type NetworkConfig struct {
@@ -54,7 +62,7 @@ type NetworkConfig struct {
 
 type ServiceProcessConfig struct {
 	Command  []string             `yaml:"command"`
-	Quantity uint                 `yaml:"quantity"`
+	Quantity int                  `yaml:"quantity"`
 	Env      map[string]string    `yaml:"env"`
 	Mounts   []ServiceMountConfig `yaml:"mounts"`
 	Caddy    ProcessCaddyConfig   `yaml:"caddy"`
@@ -63,6 +71,14 @@ type ServiceProcessConfig struct {
 	Privileged bool `yaml:"privileged"`
 
 	Network NetworkConfig `yaml:"network"`
+}
+
+func (spc ServiceProcessConfig) GetQuantity() int {
+	if spc.Quantity != 0 {
+		return spc.Quantity
+	}
+
+	return 1
 }
 
 type ServiceTaskConfig struct {

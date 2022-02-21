@@ -56,7 +56,7 @@ func (e *Engine) Status(
 	processStatuses := map[string]ProcessStatus{}
 	for processName, process := range svc.Processes {
 		ps := ProcessStatus{
-			WantReplicas: int(process.Quantity),
+			WantReplicas: process.GetQuantity(),
 			Containers:   []ProcessContainer{},
 		}
 
