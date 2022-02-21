@@ -64,6 +64,10 @@ type ServiceProcessConfig struct {
 	Network ProcessNetworkConfig `yaml:"network"`
 }
 
+type TaskNetworkConfig struct {
+	Mode NetworkMode `yaml:"mode"`
+}
+
 type ServiceTaskConfig struct {
 	Image       string               `yaml:"image"`
 	ImageTag    string               `yaml:"imageTag"`
@@ -71,6 +75,7 @@ type ServiceTaskConfig struct {
 	Interactive bool                 `yaml:"interactive"`
 	Env         map[string]string    `yaml:"env"`
 	Mounts      []ServiceMountConfig `yaml:"mounts"`
+	Network     TaskNetworkConfig    `yaml:"network"`
 }
 
 var (

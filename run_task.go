@@ -84,21 +84,27 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 	e.log.Info("creating container",
 		zap.String("taskRun", fullName),
 	)
+
+	containerConfig := &container.Config{
+		Cmd:   task.Command,
+		Image: image,
+		Env:   env,
+		Labels: map[string]string{
+			serviceLabel: svc.Name,
+			taskLabel:    args.TaskName,
+			managedLabel: "1",
+		},
+	}
+	hostConfig := &container.HostConfig{
+		Mounts: mounts,
+	}
+	if task.Network.Mode.IsHost() {
+		hostConfig.NetworkMode = "host"
+	}
 	createRes, err := e.docker.ContainerCreate(
 		ctx,
-		&container.Config{
-			Cmd:   task.Command,
-			Image: image,
-			Env:   env,
-			Labels: map[string]string{
-				serviceLabel: svc.Name,
-				taskLabel:    args.TaskName,
-				managedLabel: "1",
-			},
-		},
-		&container.HostConfig{
-			Mounts: mounts,
-		},
+		containerConfig,
+		hostConfig,
 		&network.NetworkingConfig{},
 		nil,
 		fullName,
