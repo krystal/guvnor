@@ -19,6 +19,20 @@ type dockerAuthConfig struct {
 	Auths map[string]types.AuthConfig `json:"auths"`
 }
 
+func getIndexForImage(image string) (string, error) {
+	ref, err := reference.ParseNormalizedNamed(image)
+	if err != nil {
+		return "", err
+	}
+
+	reg, err := registry.ParseRepositoryInfo(ref)
+	if err != nil {
+		return "", err
+	}
+
+	return reg.Index.Name, nil
+}
+
 func loadCredentialsFromDockerConfig(image string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -36,18 +50,12 @@ func loadCredentialsFromDockerConfig(image string) (string, error) {
 		return "", err
 	}
 
-	ref, err := reference.ParseNormalizedNamed(image)
+	indexName, err := getIndexForImage(image)
 	if err != nil {
 		return "", err
 	}
 
-	reg, err := registry.ParseRepositoryInfo(ref)
-	if err != nil {
-		return "", err
-	}
-
-	// TODO: Parse correct registry from the image
-	registryAuth, ok := dockerConf.Auths[reg.Index.Name]
+	registryAuth, ok := dockerConf.Auths[indexName]
 	if !ok || registryAuth.Auth == "" {
 		return "", errors.New("no auth configured")
 	}
