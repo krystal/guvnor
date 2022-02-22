@@ -231,6 +231,12 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 				},
 			}
 			containerConfig.ExposedPorts[natPort] = struct{}{}
+
+			hostConfig.ExtraHosts = append(hostConfig.ExtraHosts,
+				// host-gateway is a special argument that tells docker to insert
+				// the IP of the host's gateway on the container network.
+				"host.docker.internal:host-gateway",
+			)
 		}
 
 		res, err := e.docker.ContainerCreate(

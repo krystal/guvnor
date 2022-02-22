@@ -100,6 +100,12 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 	}
 	if task.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
 		hostConfig.NetworkMode = "host"
+	} else {
+		hostConfig.ExtraHosts = append(hostConfig.ExtraHosts,
+			// host-gateway is a special argument that tells docker to insert
+			// the IP of the host's gateway on the container network.
+			"host.docker.internal:host-gateway",
+		)
 	}
 
 	createRes, err := e.docker.ContainerCreate(
