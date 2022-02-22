@@ -8,18 +8,13 @@ import (
 	"io"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/docker/docker/api/types"
 	"go.uber.org/zap"
 )
 
-type individualRegistryAuth struct {
-	Auth string `json:"auth"`
-}
-
 type dockerAuthConfig struct {
-	Auths map[string]individualRegistryAuth `json:"auths"`
+	Auths map[string]types.AuthConfig `json:"auths"`
 }
 
 func loadCredentialsFromDockerConfig() (string, error) {
@@ -40,26 +35,12 @@ func loadCredentialsFromDockerConfig() (string, error) {
 	}
 
 	// TODO: Parse correct registry from the image
-	dockerAuthStr, ok := dockerConf.Auths["ghcr.io"]
-	if !ok || dockerAuthStr.Auth == "" {
+	registryAuth, ok := dockerConf.Auths["ghcr.io"]
+	if !ok || registryAuth.Auth == "" {
 		return "", errors.New("no auth configured")
 	}
 
-	unencodedBytes, err := base64.URLEncoding.DecodeString(dockerAuthStr.Auth)
-	if err != nil {
-		return "", err
-	}
-
-	splits := strings.Split(string(unencodedBytes), ":")
-	if len(splits) != 2 {
-		return "", errors.New("malformed auth string")
-	}
-
-	authConfig := types.AuthConfig{
-		Username: splits[0],
-		Password: splits[1],
-	}
-	outBytes, err := json.Marshal(authConfig)
+	outBytes, err := json.Marshal(registryAuth)
 	if err != nil {
 		return "", err
 	}
