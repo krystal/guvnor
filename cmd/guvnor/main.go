@@ -21,6 +21,7 @@ func newRootCmd(subCommands ...*cobra.Command) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
+		SilenceUsage: true,
 	}
 
 	for _, subCmd := range subCommands {

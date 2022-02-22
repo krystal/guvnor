@@ -9,7 +9,9 @@ import (
 	"os"
 	"path"
 
+	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/registry"
 	"go.uber.org/zap"
 )
 
@@ -17,7 +19,7 @@ type dockerAuthConfig struct {
 	Auths map[string]types.AuthConfig `json:"auths"`
 }
 
-func loadCredentialsFromDockerConfig() (string, error) {
+func loadCredentialsFromDockerConfig(image string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -34,8 +36,18 @@ func loadCredentialsFromDockerConfig() (string, error) {
 		return "", err
 	}
 
+	ref, err := reference.ParseNormalizedNamed(image)
+	if err != nil {
+		return "", err
+	}
+
+	reg, err := registry.ParseRepositoryInfo(ref)
+	if err != nil {
+		return "", err
+	}
+
 	// TODO: Parse correct registry from the image
-	registryAuth, ok := dockerConf.Auths["ghcr.io"]
+	registryAuth, ok := dockerConf.Auths[reg.Index.Name]
 	if !ok || registryAuth.Auth == "" {
 		return "", errors.New("no auth configured")
 	}
@@ -51,7 +63,7 @@ func loadCredentialsFromDockerConfig() (string, error) {
 // pullImage will ensure that an image exists in the local store. This means
 // it will not pull if it is already present.
 func (e *Engine) pullImage(ctx context.Context, image string) error {
-	authStr, err := loadCredentialsFromDockerConfig()
+	authStr, err := loadCredentialsFromDockerConfig(image)
 	if err != nil {
 		e.log.Warn(
 			"could not load docker credentials, using no auth",
