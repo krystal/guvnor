@@ -276,7 +276,12 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 
 	// Shut down containers from previous generation
 	if deploymentID > 1 {
-		e.purgePreviousProcessDeployment(ctx, deploymentID-1, svc, processName)
+		err := e.purgePreviousProcessDeployment(
+			ctx, deploymentID-1, svc, processName,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
