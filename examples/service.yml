@@ -22,7 +22,7 @@ processes:
       hostnames:
         - identity.k.io
         - identity.another.domain
-    readyChecks:
+    readyCheck:
       frequency: 2
       maximum: 30
       http:

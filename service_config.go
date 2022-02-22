@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/krystal/guvnor/ready"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -61,6 +62,8 @@ type NetworkConfig struct {
 }
 
 type ServiceProcessConfig struct {
+	Image    string               `yaml:"image"`
+	ImageTag string               `yaml:"imageTag"`
 	Command  []string             `yaml:"command"`
 	Quantity int                  `yaml:"quantity"`
 	Env      map[string]string    `yaml:"env"`
@@ -70,7 +73,8 @@ type ServiceProcessConfig struct {
 	// Privileged grants all capabilities to the container.
 	Privileged bool `yaml:"privileged"`
 
-	Network NetworkConfig `yaml:"network"`
+	Network    NetworkConfig `yaml:"network"`
+	ReadyCheck *ready.Check  `yaml:"readyCheck"`
 }
 
 func (spc ServiceProcessConfig) GetQuantity() int {

@@ -2,6 +2,7 @@ package guvnor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
+	"github.com/krystal/guvnor/state"
 	"go.uber.org/zap"
 )
 
@@ -78,7 +80,210 @@ func findFreePort() (string, error) {
 	return strconv.Itoa(lAddr.Port), nil
 }
 
+// purgePreviousProcessDeployment destroys containers of a specific svc-process
+// combination of a specific deployment ID. This allows us to clean up older
+// deployments.
+func (e *Engine) purgePreviousProcessDeployment(
+	ctx context.Context,
+	deploymentToPurgeID int,
+	svc *ServiceConfig,
+	processName string,
+) error {
+	e.log.Debug("purging previous process deployment",
+		zap.String("process", processName),
+		zap.String("service", svc.Name),
+		zap.Int("deployment", deploymentToPurgeID),
+	)
+	listToShutdown, err := e.docker.ContainerList(ctx, types.ContainerListOptions{
+		All: true,
+		Filters: filters.NewArgs(
+			filters.Arg("label", fmt.Sprintf("%s=%s", serviceLabel, svc.Name)),
+			filters.Arg("label", fmt.Sprintf("%s=%s", processLabel, processName)),
+			filters.Arg(
+				"label",
+				fmt.Sprintf("%s=%d", deploymentLabel, deploymentToPurgeID),
+			),
+		),
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, containerToShutdown := range listToShutdown {
+		e.log.Debug("removing previous deployment container",
+			zap.String("process", processName),
+			zap.String("service", svc.Name),
+			zap.String("container", containerToShutdown.ID),
+		)
+		err = e.docker.ContainerRemove(
+			ctx,
+			containerToShutdown.ID,
+			types.ContainerRemoveOptions{
+				Force: true,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, svcState *state.ServiceState, processName string, process *ServiceProcessConfig) error {
+	e.log.Debug("deploying process",
+		zap.String("process", processName),
+		zap.String("service", svc.Name),
+	)
+
+	deploymentID := svcState.DeploymentID
+
+	newPorts := []string{}
+
+	for i := 0; i < process.GetQuantity(); i++ {
+		fullName := containerFullName(svc.Name, deploymentID, processName, i)
+		e.log.Debug("deploying process instance",
+			zap.String("process", processName),
+			zap.String("service", svc.Name),
+			zap.Int("i", i),
+			zap.String("containerName", fullName),
+		)
+
+		image := fmt.Sprintf(
+			"%s:%s",
+			svc.Defaults.Image,
+			svc.Defaults.ImageTag,
+		)
+		if process.Image != "" {
+			if process.ImageTag == "" {
+				return errors.New(
+					"imageTag must be specified when image specified",
+				)
+			}
+			image = fmt.Sprintf(
+				"%s:%s",
+				process.Image,
+				process.ImageTag,
+			)
+		}
+		if err := e.pullImage(ctx, image); err != nil {
+			return err
+		}
+
+		selectedPort, err := findFreePort()
+		if err != nil {
+			return err
+		}
+
+		// Merge default, process and guvnor provided environment
+		env := mergeEnv(
+			svc.Defaults.Env,
+			process.Env,
+			map[string]string{
+				"PORT":              selectedPort,
+				"GUVNOR_SERVICE":    svc.Name,
+				"GUVNOR_PROCESS":    processName,
+				"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
+			},
+		)
+
+		// Merge mounts and convert to docker API mounts
+		mounts := []mount.Mount{}
+		for _, mnt := range mergeMounts(
+			svc.Defaults.Mounts, process.Mounts,
+		) {
+			mounts = append(mounts, mount.Mount{
+				Type:   mount.TypeBind,
+				Source: mnt.Host,
+				Target: mnt.Container,
+			})
+		}
+
+		portProtocolBinding := selectedPort + "/tcp"
+		containerConfig := &container.Config{
+			Cmd:   process.Command,
+			Image: image,
+			Env:   env,
+			Labels: map[string]string{
+				serviceLabel:    svc.Name,
+				processLabel:    processName,
+				deploymentLabel: fmt.Sprintf("%d", deploymentID),
+				managedLabel:    "1",
+			},
+			ExposedPorts: nat.PortSet{},
+		}
+		hostConfig := &container.HostConfig{
+			PortBindings: nat.PortMap{},
+			RestartPolicy: container.RestartPolicy{
+				Name: "always",
+			},
+			Mounts:     mounts,
+			Privileged: process.Privileged,
+		}
+		if process.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
+			hostConfig.NetworkMode = "host"
+		} else {
+			natPort := nat.Port(portProtocolBinding)
+			hostConfig.PortBindings[natPort] = []nat.PortBinding{
+				{
+					HostPort: portProtocolBinding,
+					HostIP:   "127.0.0.1",
+				},
+			}
+			containerConfig.ExposedPorts[natPort] = struct{}{}
+		}
+
+		res, err := e.docker.ContainerCreate(
+			ctx,
+			containerConfig,
+			hostConfig,
+			&network.NetworkingConfig{},
+			nil,
+			fullName,
+		)
+		if err != nil {
+			return err
+		}
+
+		err = e.docker.ContainerStart(
+			ctx, res.ID, types.ContainerStartOptions{},
+		)
+		if err != nil {
+			return err
+		}
+
+		newPorts = append(newPorts, selectedPort)
+
+		// TODO: Verify it comes online
+	}
+
+	caddyBackendName := fmt.Sprintf("%s-%s", svc.Name, processName)
+	if len(process.Caddy.Hostnames) > 0 {
+		// Sync caddy configuration with new ports
+		err := e.caddy.ConfigureBackend(
+			ctx, caddyBackendName, process.Caddy.Hostnames, newPorts,
+		)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Clear out any caddy config associated with this process
+		err := e.caddy.DeleteBackend(ctx, caddyBackendName)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Shut down containers from previous generation
+	if deploymentID > 1 {
+		e.purgePreviousProcessDeployment(ctx, deploymentID-1, svc, processName)
+	}
+
+	return nil
+}
+
 func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
+	// Load config & state
 	svc, err := e.loadServiceConfig(args.ServiceName)
 	if err != nil {
 		return err
@@ -88,178 +293,20 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 	if err != nil {
 		return err
 	}
+
+	// Prepare state with values we will want to persist
 	svcState.DeploymentID += 1
 	svcState.LastDeployedAt = time.Now()
 
+	// Setup caddy
 	if err := e.caddy.Init(ctx); err != nil {
 		return err
 	}
 
-	deploymentID := svcState.DeploymentID
 	for processName, process := range svc.Processes {
-		e.log.Debug("deploying process",
-			zap.String("process", processName),
-			zap.String("service", svc.Name),
-		)
-
-		newPorts := []string{}
-
-		for i := 0; i < process.GetQuantity(); i++ {
-			fullName := containerFullName(svc.Name, deploymentID, processName, i)
-			e.log.Debug("deploying process instance",
-				zap.String("process", processName),
-				zap.String("service", svc.Name),
-				zap.Int("i", i),
-				zap.String("containerName", fullName),
-			)
-
-			image := fmt.Sprintf(
-				"%s:%s",
-				svc.Defaults.Image,
-				svc.Defaults.ImageTag,
-			)
-			if err := e.pullImage(ctx, image); err != nil {
-				return err
-			}
-
-			selectedPort, err := findFreePort()
-			if err != nil {
-				return err
-			}
-
-			// Merge default, process and guvnor provided environment
-			env := mergeEnv(
-				svc.Defaults.Env,
-				process.Env,
-				map[string]string{
-					"PORT":              selectedPort,
-					"GUVNOR_SERVICE":    svc.Name,
-					"GUVNOR_PROCESS":    processName,
-					"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
-				},
-			)
-
-			// Merge mounts and convert to docker API mounts
-			mounts := []mount.Mount{}
-			for _, mnt := range mergeMounts(
-				svc.Defaults.Mounts, process.Mounts,
-			) {
-				mounts = append(mounts, mount.Mount{
-					Type:   mount.TypeBind,
-					Source: mnt.Host,
-					Target: mnt.Container,
-				})
-			}
-
-			portProtocolBinding := selectedPort + "/tcp"
-			containerConfig := &container.Config{
-				Cmd:   process.Command,
-				Image: image,
-				Env:   env,
-				Labels: map[string]string{
-					serviceLabel:    svc.Name,
-					processLabel:    processName,
-					deploymentLabel: fmt.Sprintf("%d", deploymentID),
-					managedLabel:    "1",
-				},
-				ExposedPorts: nat.PortSet{},
-			}
-			hostConfig := &container.HostConfig{
-				PortBindings: nat.PortMap{},
-				RestartPolicy: container.RestartPolicy{
-					Name: "always",
-				},
-				Mounts:     mounts,
-				Privileged: process.Privileged,
-			}
-			if process.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
-				hostConfig.NetworkMode = "host"
-			} else {
-				natPort := nat.Port(portProtocolBinding)
-				hostConfig.PortBindings[natPort] = []nat.PortBinding{
-					{
-						HostPort: portProtocolBinding,
-						HostIP:   "127.0.0.1",
-					},
-				}
-				containerConfig.ExposedPorts[natPort] = struct{}{}
-			}
-
-			res, err := e.docker.ContainerCreate(
-				ctx,
-				containerConfig,
-				hostConfig,
-				&network.NetworkingConfig{},
-				nil,
-				fullName,
-			)
-			if err != nil {
-				return err
-			}
-
-			err = e.docker.ContainerStart(
-				ctx, res.ID, types.ContainerStartOptions{},
-			)
-			if err != nil {
-				return err
-			}
-
-			newPorts = append(newPorts, selectedPort)
-
-			// TODO: Verify it comes online
-		}
-
-		caddyBackendName := fmt.Sprintf("%s-%s", svc.Name, processName)
-		if len(process.Caddy.Hostnames) > 0 {
-			// Sync caddy configuration with new ports
-			err = e.caddy.ConfigureBackend(
-				ctx, caddyBackendName, process.Caddy.Hostnames, newPorts,
-			)
-			if err != nil {
-				return err
-			}
-		} else {
-			// Clear out any caddy config associated with this process
-			err = e.caddy.DeleteBackend(ctx, caddyBackendName)
-			if err != nil {
-				return err
-			}
-		}
-
-		// Shut down containers from previous generation
-		if deploymentID > 1 {
-			listToShutdown, err := e.docker.ContainerList(ctx, types.ContainerListOptions{
-				All: true,
-				Filters: filters.NewArgs(
-					filters.Arg("label", fmt.Sprintf("%s=%s", serviceLabel, svc.Name)),
-					filters.Arg("label", fmt.Sprintf("%s=%s", processLabel, processName)),
-					filters.Arg(
-						"label",
-						fmt.Sprintf("%s=%d", deploymentLabel, deploymentID-1),
-					),
-				),
-			})
-			if err != nil {
-				return err
-			}
-
-			for _, containerToShutdown := range listToShutdown {
-				e.log.Debug("removing previous deployment container",
-					zap.String("process", processName),
-					zap.String("service", svc.Name),
-					zap.String("container", containerToShutdown.ID),
-				)
-				err = e.docker.ContainerRemove(
-					ctx,
-					containerToShutdown.ID,
-					types.ContainerRemoveOptions{
-						Force: true,
-					},
-				)
-				if err != nil {
-					return err
-				}
-			}
+		err = e.deployServiceProcess(ctx, svc, svcState, processName, &process)
+		if err != nil {
+			return err
 		}
 	}
 	// TODO: Tidy up any processes/containers that may have been removed from

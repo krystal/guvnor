@@ -44,7 +44,7 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 	if task.Image != "" {
 		if task.ImageTag == "" {
 			return errors.New(
-				"imageTag must be specified for task when image specified",
+				"imageTag must be specified when image specified",
 			)
 		}
 		image = fmt.Sprintf(

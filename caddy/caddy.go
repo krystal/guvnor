@@ -180,7 +180,7 @@ func (cm *Manager) Init(ctx context.Context) error {
 			Host:           "localhost:2019",
 			Path:           "/config/",
 			ExpectedStatus: 200,
-			Timeout:        250 * time.Millisecond,
+			Timeout:        500 * time.Millisecond,
 		},
 	}
 	if err := check.Wait(ctx, cm.Log.Named("ready")); err != nil {
