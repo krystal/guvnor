@@ -23,6 +23,11 @@ type DeployArgs struct {
 	Tag         string
 }
 
+type DeployRes struct {
+	ServiceName  string
+	DeploymentID int
+}
+
 func containerFullName(
 	serviceName string,
 	deploymentID int,
@@ -293,16 +298,16 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 	return nil
 }
 
-func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
+func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error) {
 	// Load config & state
 	svc, err := e.loadServiceConfig(args.ServiceName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	svcState, err := e.state.LoadServiceState(svc.Name)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Prepare state with values we will want to persist
@@ -311,17 +316,25 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) error {
 
 	// Setup caddy
 	if err := e.caddy.Init(ctx); err != nil {
-		return err
+		return nil, err
 	}
 
 	for processName, process := range svc.Processes {
 		err = e.deployServiceProcess(ctx, svc, svcState, processName, &process)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
+
 	// TODO: Tidy up any processes/containers that may have been removed from
 	// the spec.
 
-	return e.state.SaveServiceState(svc.Name, svcState)
+	if err := e.state.SaveServiceState(svc.Name, svcState); err != nil {
+		return nil, err
+	}
+
+	return &DeployRes{
+		ServiceName:  svc.Name,
+		DeploymentID: svcState.DeploymentID,
+	}, nil
 }

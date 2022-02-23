@@ -1,15 +1,18 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/krystal/guvnor"
 	"github.com/spf13/cobra"
 )
 
 func newDeployCmd(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deploy [service]",
-		Short: "Runs a deployment for a given service",
-		Args:  cobra.RangeArgs(0, 1),
+		Use:          "deploy [service]",
+		Short:        "Runs a deployment for a given service",
+		Args:         cobra.RangeArgs(0, 1),
+		SilenceUsage: true,
 	}
 
 	tagFlag := cmd.Flags().String(
@@ -29,10 +32,21 @@ func newDeployCmd(eP engineProvider) *cobra.Command {
 			serviceName = args[0]
 		}
 
-		return engine.Deploy(cmd.Context(), guvnor.DeployArgs{
+		res, err := engine.Deploy(cmd.Context(), guvnor.DeployArgs{
 			ServiceName: serviceName,
 			Tag:         *tagFlag,
 		})
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintf(
+			cmd.OutOrStdout(),
+			"✅ Succesfully deployed '%s'. Deployment ID is '%d'.\n",
+			res.ServiceName,
+			res.DeploymentID,
+		)
+		return err
 	}
 
 	return cmd

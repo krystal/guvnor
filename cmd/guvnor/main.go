@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	goLog "log"
 	"os"
@@ -31,8 +32,8 @@ func newRootCmd(subCommands ...*cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func stdEngineProvider(log *zap.Logger) func() (*guvnor.Engine, error) {
-	return func() (*guvnor.Engine, error) {
+func stdEngineProvider(log *zap.Logger) func() (engine, error) {
+	return func() (engine, error) {
 		dockerClient, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
 			return nil, fmt.Errorf("connecting to docker: %w", err)
@@ -52,7 +53,14 @@ func stdEngineProvider(log *zap.Logger) func() (*guvnor.Engine, error) {
 	}
 }
 
-type engineProvider = func() (*guvnor.Engine, error)
+type engineProvider = func() (engine, error)
+
+type engine interface {
+	Purge(context.Context) error
+	Deploy(context.Context, guvnor.DeployArgs) (*guvnor.DeployRes, error)
+	Status(context.Context, guvnor.StatusArgs) (*guvnor.StatusRes, error)
+	RunTask(context.Context, guvnor.RunTaskArgs) error
+}
 
 func main() {
 	log, err := zap.NewDevelopment()
