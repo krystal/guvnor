@@ -1,0 +1,6 @@
+Usage:
+  status <service> [flags]
+
+Flags:
+  -h, --help   help for status
+

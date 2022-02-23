@@ -1,0 +1,12 @@
+------ Service: fizzler ------
+Deployment count: 100
+Last deployed at: Thu, 02 Nov 2000 12:00:00 UTC
+---- Process: fizz ----
+Desired replicas: 1
+Containers:
+| a-name-1 | 9a41bb9395f6eb342fdb1a2145560d91fdbf18d40691bcce93a9e6edaaedc1f8 |  |
+---- Process: buzz ----
+Desired replicas: 2
+Containers:
+| b-name-1 | 8a5f8765250e01ec549a098a6438f3880a19f61e41d48586e73f269d98ceadf3 | running |
+| b-name-2 | 8315d2b0cf0b8a7a8c1675d0ec1062b7b9d041b7381779e842b7dc157b8eea64 | dead |
