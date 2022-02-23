@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/docker/docker/client"
+	"github.com/fatih/color"
 	"github.com/go-playground/validator/v10"
 	"github.com/krystal/guvnor"
 	"github.com/spf13/cobra"
@@ -14,6 +15,11 @@ import (
 )
 
 var version = "indev"
+
+var (
+	infoColour    = color.New(color.FgBlue)
+	successColour = color.New(color.FgGreen)
+)
 
 func newRootCmd(subCommands ...*cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
