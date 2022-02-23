@@ -22,6 +22,15 @@ func newStatusCmd(eP engineProvider) *cobra.Command {
 		}
 		serviceName := args[0]
 
+		_, err = infoColour.Fprintf(
+			cmd.OutOrStdout(),
+			"🔎 Checking status of '%s'! Will be just a tick.\n",
+			serviceName,
+		)
+		if err != nil {
+			return err
+		}
+
 		res, err := engine.Status(
 			cmd.Context(),
 			guvnor.StatusArgs{ServiceName: serviceName},
@@ -30,8 +39,15 @@ func newStatusCmd(eP engineProvider) *cobra.Command {
 			return err
 		}
 
+		_, err = successColour.Fprintln(
+			cmd.OutOrStdout(),
+			"✅ Succesfully fetched status.",
+		)
+		if err != nil {
+			return err
+		}
 		// TODO: Come back and make this output prettier :)
-		fmt.Fprintf(
+		infoColour.Fprintf(
 			cmd.OutOrStdout(),
 			"------ Service: %s ------\n",
 			serviceName,
@@ -47,7 +63,7 @@ func newStatusCmd(eP engineProvider) *cobra.Command {
 			res.LastDeployedAt.Format(time.RFC1123),
 		)
 		for processName, process := range res.Processes {
-			fmt.Fprintf(cmd.OutOrStdout(), "---- Process: %s ----\n", processName)
+			infoColour.Fprintf(cmd.OutOrStdout(), "---- Process: %s ----\n", processName)
 			fmt.Fprintf(
 				cmd.OutOrStdout(),
 				"Desired replicas: %d\nContainers:\n",

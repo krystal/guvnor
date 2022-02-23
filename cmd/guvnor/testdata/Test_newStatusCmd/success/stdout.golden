@@ -1,10 +1,12 @@
+🔎 Checking status of 'fizzler'! Will be just a tick.
+✅ Succesfully fetched status.
 ------ Service: fizzler ------
 Deployment count: 100
 Last deployed at: Thu, 02 Nov 2000 12:00:00 UTC
 ---- Process: fizz ----
 Desired replicas: 1
 Containers:
-| a-name-1 | 9a41bb9395f6eb342fdb1a2145560d91fdbf18d40691bcce93a9e6edaaedc1f8 |  |
+| a-name-1 | 9a41bb9395f6eb342fdb1a2145560d91fdbf18d40691bcce93a9e6edaaedc1f8 | running |
 ---- Process: buzz ----
 Desired replicas: 2
 Containers:
