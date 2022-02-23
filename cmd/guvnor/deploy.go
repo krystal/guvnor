@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/fatih/color"
 	"github.com/krystal/guvnor"
 	"github.com/spf13/cobra"
 )
@@ -28,8 +29,21 @@ func newDeployCmd(eP engineProvider) *cobra.Command {
 		}
 
 		serviceName := ""
+		deployingMessage := "the default service"
 		if len(args) == 1 {
 			serviceName = args[0]
+			deployingMessage = fmt.Sprintf("'%s'", serviceName)
+		}
+
+		blue := color.New(color.FgBlue)
+
+		_, err = blue.Fprintf(
+			cmd.OutOrStdout(),
+			"🔨 Deploying %s. Hold on tight!\n",
+			deployingMessage,
+		)
+		if err != nil {
+			return err
 		}
 
 		res, err := engine.Deploy(cmd.Context(), guvnor.DeployArgs{
@@ -40,9 +54,10 @@ func newDeployCmd(eP engineProvider) *cobra.Command {
 			return err
 		}
 
-		_, err = fmt.Fprintf(
+		green := color.New(color.FgGreen)
+		_, err = green.Fprintf(
 			cmd.OutOrStdout(),
-			"✅ Succesfully deployed '%s'. Deployment ID is '%d'.\n",
+			"✅ Succesfully deployed '%s'. Deployment ID is %d.\n",
 			res.ServiceName,
 			res.DeploymentID,
 		)
