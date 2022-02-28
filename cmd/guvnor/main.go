@@ -42,7 +42,7 @@ func newRootCmd(subCommands ...*cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func stdEngineProvider(log *zap.Logger) func() (engine, error) {
+func stdEngineProvider(log *zap.Logger, serviceRootOverride *string) func() (engine, error) {
 	return func() (engine, error) {
 		dockerClient, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
@@ -55,6 +55,10 @@ func stdEngineProvider(log *zap.Logger) func() (engine, error) {
 		cfg, err := guvnor.LoadConfig(v, "")
 		if err != nil {
 			return nil, fmt.Errorf("load config: %w", err)
+		}
+
+		if *serviceRootOverride != "" {
+			cfg.Paths.Config = *serviceRootOverride
 		}
 
 		e := guvnor.NewEngine(log, dockerClient, *cfg, v)
@@ -78,13 +82,22 @@ func main() {
 		goLog.Fatalf("failed to setup logger: %s", err)
 	}
 
-	eProv := stdEngineProvider(log)
+	serviceRootOverride := ""
+
+	eProv := stdEngineProvider(log, &serviceRootOverride)
 	root := newRootCmd(
 		newDeployCmd(eProv),
 		newPurgeCmd(eProv),
 		newRunCmd(eProv),
 		newStatusCmd(eProv),
 		newInitCmd(),
+	)
+
+	root.PersistentFlags().StringVar(
+		&serviceRootOverride,
+		"service-root",
+		"",
+		"overrides Guvnor to search for service configs in an alternate directory",
 	)
 
 	if err := root.Execute(); err != nil {
