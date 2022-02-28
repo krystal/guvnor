@@ -1,12 +1,23 @@
 package main
 
 import (
-	"fmt"
+	"io"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/krystal/guvnor"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
+
+type colorWriter struct {
+	io.Writer
+	*color.Color
+}
+
+func (c colorWriter) Write(p []byte) (n int, err error) {
+	return c.Color.Fprint(c.Writer, string(p))
+}
 
 func newStatusCmd(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
@@ -21,6 +32,13 @@ func newStatusCmd(eP engineProvider) *cobra.Command {
 			return err
 		}
 		serviceName := args[0]
+
+		infoColour.EnableColor()
+		successColour.EnableColor()
+		normalColour.EnableColor()
+		tableColour.EnableColor()
+		labelColour.EnableColor()
+		errorColour.EnableColor()
 
 		_, err = infoColour.Fprintf(
 			cmd.OutOrStdout(),
@@ -46,38 +64,63 @@ func newStatusCmd(eP engineProvider) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		// TODO: Come back and make this output prettier :)
 		infoColour.Fprintf(
 			cmd.OutOrStdout(),
 			"------ Service: %s ------\n",
 			serviceName,
 		)
-		fmt.Fprintf(
+		labelColour.Fprint(
 			cmd.OutOrStdout(),
-			"Deployment count: %d\n",
+			"Deployment count: ",
+		)
+		normalColour.Fprintln(
+			cmd.OutOrStdout(),
 			res.DeploymentID,
 		)
-		fmt.Fprintf(
+		labelColour.Fprint(
 			cmd.OutOrStdout(),
-			"Last deployed at: %s\n",
+			"Last deployed at: ",
+		)
+		normalColour.Fprintln(
+			cmd.OutOrStdout(),
 			res.LastDeployedAt.Format(time.RFC1123),
 		)
 		for processName, process := range res.Processes {
 			infoColour.Fprintf(cmd.OutOrStdout(), "---- Process: %s ----\n", processName)
-			fmt.Fprintf(
+			labelColour.Fprint(
 				cmd.OutOrStdout(),
-				"Desired replicas: %d\nContainers:\n",
+				"Desired replicas: ",
+			)
+			normalColour.Fprintln(
+				cmd.OutOrStdout(),
 				process.WantReplicas,
 			)
+			labelColour.Fprintln(
+				cmd.OutOrStdout(),
+				"Containers: ",
+			)
+			tw := tablewriter.NewWriter(colorWriter{cmd.OutOrStdout(), tableColour})
+			tw.SetHeader([]string{"Name", "ID", "Status"})
+			tw.SetBorder(false)
+			tw.SetRowLine(false)
+			tw.SetHeaderLine(false)
+			tw.SetColumnSeparator("")
 			for _, container := range process.Containers {
-				fmt.Fprintf(
-					cmd.OutOrStdout(),
-					"| %s | %s | %s |\n",
+				status := container.Status
+				switch status {
+				case "running":
+					status = successColour.Sprint(status)
+				case "stopped":
+				case "dead":
+					status = errorColour.Sprint(status)
+				}
+				tw.Append([]string{
 					container.ContainerName,
 					container.ContainerID,
-					container.Status,
-				)
+					status,
+				})
 			}
+			tw.Render()
 		}
 
 		return nil

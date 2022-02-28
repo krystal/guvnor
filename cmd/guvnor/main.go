@@ -17,8 +17,12 @@ import (
 var version = "indev"
 
 var (
-	infoColour    = color.New(color.FgBlue)
+	infoColour    = color.New(color.FgCyan)
+	labelColour   = color.New(color.FgBlue)
 	successColour = color.New(color.FgGreen)
+	errorColour   = color.New(color.FgRed)
+	normalColour  = color.New(color.FgWhite)
+	tableColour   = color.New(color.FgWhite)
 )
 
 func newRootCmd(subCommands ...*cobra.Command) *cobra.Command {
