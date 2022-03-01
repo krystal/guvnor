@@ -13,7 +13,7 @@ func newRunCmd(eP engineProvider) *cobra.Command {
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		engine, err := eP()
+		engine, _, err := eP()
 		if err != nil {
 			return err
 		}

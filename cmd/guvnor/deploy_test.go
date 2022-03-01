@@ -57,8 +57,8 @@ func Test_newDeployCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mEngine := &mockEngine{}
-			provider := func() (engine, error) {
-				return mEngine, nil
+			provider := func() (engine, *guvnor.EngineConfig, error) {
+				return mEngine, nil, nil
 			}
 
 			if tt.wantArgs != nil {
