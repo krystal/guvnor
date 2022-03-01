@@ -17,11 +17,11 @@ import (
 var version = "indev"
 
 var (
+	errorColour   = color.New(color.FgRed)
 	infoColour    = color.New(color.FgCyan)
 	labelColour   = color.New(color.FgBlue)
-	successColour = color.New(color.FgGreen)
-	errorColour   = color.New(color.FgRed)
 	normalColour  = color.New(color.FgWhite)
+	successColour = color.New(color.FgGreen)
 	tableColour   = color.New(color.FgWhite)
 )
 
@@ -42,11 +42,11 @@ func newRootCmd(subCommands ...*cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func stdEngineProvider(log *zap.Logger, serviceRootOverride *string) func() (engine, error) {
-	return func() (engine, error) {
+func stdEngineProvider(log *zap.Logger, serviceRootOverride *string) func() (engine, *guvnor.EngineConfig, error) {
+	return func() (engine, *guvnor.EngineConfig, error) {
 		dockerClient, err := client.NewClientWithOpts(client.FromEnv)
 		if err != nil {
-			return nil, fmt.Errorf("connecting to docker: %w", err)
+			return nil, nil, fmt.Errorf("connecting to docker: %w", err)
 		}
 
 		v := validator.New()
@@ -54,7 +54,7 @@ func stdEngineProvider(log *zap.Logger, serviceRootOverride *string) func() (eng
 		// TODO: Add a way to override which config is loaded :)
 		cfg, err := guvnor.LoadConfig(v, "")
 		if err != nil {
-			return nil, fmt.Errorf("load config: %w", err)
+			return nil, nil, fmt.Errorf("load config: %w", err)
 		}
 
 		if *serviceRootOverride != "" {
@@ -63,17 +63,17 @@ func stdEngineProvider(log *zap.Logger, serviceRootOverride *string) func() (eng
 
 		e := guvnor.NewEngine(log, dockerClient, *cfg, v)
 
-		return e, nil
+		return e, cfg, nil
 	}
 }
 
-type engineProvider = func() (engine, error)
+type engineProvider = func() (engine, *guvnor.EngineConfig, error)
 
 type engine interface {
-	Purge(context.Context) error
 	Deploy(context.Context, guvnor.DeployArgs) (*guvnor.DeployRes, error)
-	Status(context.Context, guvnor.StatusArgs) (*guvnor.StatusRes, error)
+	Purge(context.Context) error
 	RunTask(context.Context, guvnor.RunTaskArgs) error
+	Status(context.Context, guvnor.StatusArgs) (*guvnor.StatusRes, error)
 }
 
 func main() {
@@ -87,10 +87,11 @@ func main() {
 	eProv := stdEngineProvider(log, &serviceRootOverride)
 	root := newRootCmd(
 		newDeployCmd(eProv),
+		newEditCommand(eProv),
+		newInitCmd(),
 		newPurgeCmd(eProv),
 		newRunCmd(eProv),
 		newStatusCmd(eProv),
-		newInitCmd(),
 	)
 
 	root.PersistentFlags().StringVar(
