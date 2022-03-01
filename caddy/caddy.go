@@ -17,6 +17,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/krystal/guvnor/ready"
@@ -142,16 +143,36 @@ func (cm *Manager) Init(ctx context.Context) error {
 		return err
 	}
 
+	dataVolume := "guvnor-caddy-data"
+	configVolume := "guvnor-caddy-config"
 	createRes, err := cm.Docker.ContainerCreate(
 		ctx,
 		&container.Config{
 			Image:  image,
 			Labels: cm.ContainerLabels,
+			Volumes: map[string]struct{}{
+				dataVolume:   {},
+				configVolume: {},
+			},
+			Entrypoint: []string{"caddy"},
+			Cmd:        []string{"run", "--resume"},
 		},
 		&container.HostConfig{
 			NetworkMode: "host",
 			RestartPolicy: container.RestartPolicy{
 				Name: "always",
+			},
+			Mounts: []mount.Mount{
+				{
+					Type:   mount.TypeVolume,
+					Target: "/data",
+					Source: dataVolume,
+				},
+				{
+					Type:   mount.TypeVolume,
+					Target: "/config",
+					Source: configVolume,
+				},
 			},
 		},
 		&network.NetworkingConfig{},
