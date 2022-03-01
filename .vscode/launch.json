@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Launch and debug test task run",
-            "args": ["run", "test", "foo"],
+            "args": ["run", "test", "bash"],
             "type": "go",
             "request": "launch",
             "program": "${workspaceFolder}/cmd/guvnor"

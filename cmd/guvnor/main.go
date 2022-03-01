@@ -5,6 +5,7 @@ import (
 	"fmt"
 	goLog "log"
 	"os"
+	"os/signal"
 
 	"github.com/docker/docker/client"
 	"github.com/fatih/color"
@@ -82,6 +83,9 @@ func main() {
 		goLog.Fatalf("failed to setup logger: %s", err)
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
 	serviceRootOverride := ""
 
 	eProv := stdEngineProvider(log, &serviceRootOverride)
@@ -101,7 +105,7 @@ func main() {
 		"overrides Guvnor to search for service configs in an alternate directory",
 	)
 
-	if err := root.Execute(); err != nil {
+	if err := root.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
 }
