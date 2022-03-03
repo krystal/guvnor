@@ -3,6 +3,7 @@ package guvnor
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -13,7 +14,7 @@ type StatusArgs struct {
 	ServiceName string
 }
 
-type ProcessContainer struct {
+type ContainerStatus struct {
 	ContainerName string
 	ContainerID   string
 	Status        string
@@ -21,13 +22,25 @@ type ProcessContainer struct {
 
 type ProcessStatus struct {
 	WantReplicas int
-	Containers   []ProcessContainer
+	Containers   []ContainerStatus
 }
 
 type StatusRes struct {
 	DeploymentID   int
 	LastDeployedAt time.Time
-	Processes      map[string]ProcessStatus
+	Processes      ProcessStatuses
+}
+
+type ProcessStatuses map[string]ProcessStatus
+
+func (ps ProcessStatuses) OrderedKeys() []string {
+	keys := make([]string, 0, len(ps))
+	for k := range ps {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+	return keys
 }
 
 func (e *Engine) Status(
@@ -57,13 +70,13 @@ func (e *Engine) Status(
 	for processName, process := range svc.Processes {
 		ps := ProcessStatus{
 			WantReplicas: process.GetQuantity(),
-			Containers:   []ProcessContainer{},
+			Containers:   []ContainerStatus{},
 		}
 
 		for _, container := range containers {
 			containerProcess := container.Labels[processLabel]
 			if containerProcess == processName {
-				ps.Containers = append(ps.Containers, ProcessContainer{
+				ps.Containers = append(ps.Containers, ContainerStatus{
 					ContainerName: container.Names[0],
 					ContainerID:   container.ID,
 					Status:        container.State,

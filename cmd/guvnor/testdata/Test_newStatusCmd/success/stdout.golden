@@ -3,14 +3,14 @@
 [36m------ Service: fizzler ------
 [34mDeployment count: [37m100
 [34mLast deployed at: [37mThu, 02 Nov 2000 12:00:00 UTC
-[36m---- Process: fizz ----
-[34mDesired replicas: [37m1
-[34mContainers: 
-[37m [37m   NAME   [37m                                ID                                [37m STATUS   [37m
-[37m [37m [37ma-name-1[37m [37m[37m [37m9a41bb9395f6eb342fdb1a2145560d91fdbf18d40691bcce93a9e6edaaedc1f8[37m [37m[37m [37m[32mrunning[0m[37m [37m [37m
 [36m---- Process: buzz ----
 [34mDesired replicas: [37m2
 [34mContainers: 
 [37m [37m   NAME   [37m                                ID                                [37m STATUS   [37m
 [37m [37m [37mb-name-1[37m [37m[37m [37m8a5f8765250e01ec549a098a6438f3880a19f61e41d48586e73f269d98ceadf3[37m [37m[37m [37m[32mrunning[0m[37m [37m [37m
 [37m [37m [37mb-name-2[37m [37m[37m [37m8315d2b0cf0b8a7a8c1675d0ec1062b7b9d041b7381779e842b7dc157b8eea64[37m [37m[37m [37m[31mdead[0m   [37m [37m [37m
+[36m---- Process: fizz ----
+[34mDesired replicas: [37m1
+[34mContainers: 
+[37m [37m   NAME   [37m                                ID                                [37m STATUS   [37m
+[37m [37m [37ma-name-1[37m [37m[37m [37m9a41bb9395f6eb342fdb1a2145560d91fdbf18d40691bcce93a9e6edaaedc1f8[37m [37m[37m [37m[32mrunning[0m[37m [37m [37m

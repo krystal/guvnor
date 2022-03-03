@@ -85,7 +85,9 @@ func newStatusCmd(eP engineProvider) *cobra.Command {
 			cmd.OutOrStdout(),
 			res.LastDeployedAt.Format(time.RFC1123),
 		)
-		for processName, process := range res.Processes {
+
+		for _, processName := range res.Processes.OrderedKeys() {
+			process := res.Processes[processName]
 			infoColour.Fprintf(cmd.OutOrStdout(), "---- Process: %s ----\n", processName)
 			labelColour.Fprint(
 				cmd.OutOrStdout(),
