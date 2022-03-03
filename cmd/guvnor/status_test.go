@@ -34,7 +34,7 @@ func Test_newStatusCmd(t *testing.T) {
 				Processes: map[string]guvnor.ProcessStatus{
 					"fizz": {
 						WantReplicas: 1,
-						Containers: []guvnor.ProcessContainer{
+						Containers: []guvnor.ContainerStatus{
 							{
 								ContainerName: "a-name-1",
 								ContainerID:   "9a41bb9395f6eb342fdb1a2145560d91fdbf18d40691bcce93a9e6edaaedc1f8",
@@ -44,7 +44,7 @@ func Test_newStatusCmd(t *testing.T) {
 					},
 					"buzz": {
 						WantReplicas: 2,
-						Containers: []guvnor.ProcessContainer{
+						Containers: []guvnor.ContainerStatus{
 							{
 								ContainerName: "b-name-1",
 								ContainerID:   "8a5f8765250e01ec549a098a6438f3880a19f61e41d48586e73f269d98ceadf3",
