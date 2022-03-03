@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -13,11 +14,116 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stdcopy"
 	"go.uber.org/zap"
+	"golang.org/x/term"
 )
+
+// Useful references on interactive tasks:
+// - https://github.com/docker/cli/blob/master/cli/command/container/run.go
+// - https://github.com/docker/cli/blob/master/cli/command/container/hijack.go
+
+type hijackStreamer struct {
+	log    *zap.Logger
+	stdin  io.ReadCloser
+	stdout io.Writer
+
+	hijacked types.HijackedResponse
+}
+
+// setRaw puts the terminal into raw mode. This enables more control, and
+// prevents an "echoing" style effect where the user sees their own input twice
+// when executing shell applications like `bash`.
+//
+// It returns a restore function that MUST be called once streaming from stdin
+// has ended, or the user's terminal will be left in a borked state.
+func (h *hijackStreamer) setRaw() (func(), error) {
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		return nil, err
+	}
+
+	restoreTerm := func() {
+		if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
+			h.log.Error("failed to restore terminal", zap.Error(err))
+		}
+	}
+
+	return restoreTerm, nil
+}
+
+// stream connects the hijacked response to the specified stdin/stdout and
+// blocks until the connection goes away or the context is cancelled.
+func (h *hijackStreamer) stream(ctx context.Context) error {
+	restoreTerm, err := h.setRaw()
+	if err != nil {
+		return err
+	}
+	defer restoreTerm()
+
+	stdinChan := make(chan error)
+	go func() {
+		_, err := io.Copy(h.hijacked.Conn, h.stdin)
+		if err != nil {
+			err = fmt.Errorf("streaming input: %w", err)
+		}
+		stdinChan <- err
+	}()
+
+	stdoutChan := make(chan error)
+	go func() {
+		_, err := io.Copy(h.stdout, h.hijacked.Reader)
+		if err != nil {
+			err = fmt.Errorf("streaming output: %w", err)
+		}
+
+		if err := h.hijacked.CloseWrite(); err != nil {
+			h.log.Error("failed to send EOF", zap.Error(err))
+		}
+		stdoutChan <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-stdinChan:
+		return err
+	case err := <-stdoutChan:
+		return err
+	}
+}
 
 type RunTaskArgs struct {
 	ServiceName string
 	TaskName    string
+}
+
+func (e *Engine) interactiveAttach(ctx context.Context, id string) (chan struct{}, error) {
+	resp, err := e.docker.ContainerAttach(ctx, id, types.ContainerAttachOptions{
+		Stream: true,
+		Stdin:  true,
+		Stdout: true,
+		Stderr: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	hs := &hijackStreamer{
+		log:      e.log,
+		stdin:    os.Stdin,
+		stdout:   os.Stdout,
+		hijacked: resp,
+	}
+
+	doneChan := make(chan struct{})
+	go func() {
+		if err := hs.stream(ctx); err != nil {
+			e.log.Error("failed in streaming interactive session", zap.Error(err))
+		}
+		resp.Close()
+		close(doneChan)
+	}()
+
+	return doneChan, nil
 }
 
 func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
@@ -29,11 +135,6 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 	task, ok := svc.Tasks[args.TaskName]
 	if !ok {
 		return errors.New("specified task cannot be found in config")
-	}
-
-	if task.Interactive {
-		// TODO: support interactive :)
-		return errors.New("interactive not yet supported")
 	}
 
 	image := fmt.Sprintf(
@@ -89,6 +190,10 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 		Cmd:   task.Command,
 		Image: image,
 		Env:   env,
+
+		Tty:       task.Interactive,
+		OpenStdin: task.Interactive,
+
 		Labels: map[string]string{
 			serviceLabel: svc.Name,
 			taskLabel:    args.TaskName,
@@ -120,6 +225,14 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 		return err
 	}
 
+	var streamingDoneChan chan struct{}
+	if task.Interactive {
+		streamingDoneChan, err = e.interactiveAttach(ctx, createRes.ID)
+		if err != nil {
+			return err
+		}
+	}
+
 	e.log.Info("starting task run container",
 		zap.String("taskRun", fullName),
 	)
@@ -139,24 +252,32 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 	case <-waitChan:
 	}
 
-	e.log.Info("task run complete, fetching logs",
-		zap.String("taskRun", fullName),
-	)
-	// TODO: Show these logs live
-	logs, err := e.docker.ContainerLogs(ctx, createRes.ID,
-		types.ContainerLogsOptions{
-			ShowStdout: true,
-			ShowStderr: true,
-		},
-	)
-	if err != nil {
-		return err
+	if streamingDoneChan != nil {
+		// Wait for the interactive streams to close up
+		<-streamingDoneChan
 	}
 
-	// TODO: Pass this out so the CLI can handle it as it wants.
-	_, err = stdcopy.StdCopy(os.Stdout, os.Stderr, logs)
-	if err != nil {
-		return err
+	if !task.Interactive {
+		// TODO: Stream these logs live rather than fetching at the end.
+		e.log.Info("task run complete, fetching logs",
+			zap.String("taskRun", fullName),
+		)
+
+		logs, err := e.docker.ContainerLogs(ctx, createRes.ID,
+			types.ContainerLogsOptions{
+				ShowStdout: true,
+				ShowStderr: true,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		// TODO: Pass this out so the CLI can handle it as it wants.
+		_, err = stdcopy.StdCopy(os.Stdout, os.Stderr, logs)
+		if err != nil {
+			return err
+		}
 	}
 
 	e.log.Info("deleting task run container",
