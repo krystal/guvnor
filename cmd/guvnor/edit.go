@@ -58,7 +58,7 @@ func newEditCommand(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "edit <service>",
 		Short:        "Opens a service configuration in your default editor and deploys it on saving.",
-		Args:         cobra.RangeArgs(0, 1),
+		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 	}
 
