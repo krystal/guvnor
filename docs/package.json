@@ -1,0 +1,19 @@
+{
+  "name": "docs",
+  "version": "0.0.1",
+  "description": "Docs for the Guvnor CLI tool",
+  "main": "index.js",
+  "authors": {
+    "name": "Krystal Hosting Ltd",
+    "email": "noah.stride@krystal.uk"
+  },
+  "repository": "github.com/krystal/guvnor/docs",
+  "scripts": {
+    "dev": "vuepress dev src",
+    "build": "vuepress build src"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "vuepress": "^1.5.3"
+  }
+}
