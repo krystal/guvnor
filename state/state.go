@@ -14,9 +14,8 @@ import (
 type DeploymentStatus string
 
 var (
-	StatusSuccess    DeploymentStatus = "SUCCESS"
-	StatusInProgress DeploymentStatus = "IN_PROGRESS"
-	StatusFailure    DeploymentStatus = "FAILURE"
+	StatusSuccess DeploymentStatus = "SUCCESS"
+	StatusFailure DeploymentStatus = "FAILURE"
 )
 
 type FileBasedStore struct {

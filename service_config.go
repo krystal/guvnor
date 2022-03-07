@@ -19,6 +19,13 @@ type ServiceConfig struct {
 
 	Processes map[string]ServiceProcessConfig `yaml:"processes"`
 	Tasks     map[string]ServiceTaskConfig    `yaml:"tasks"`
+
+	Callbacks ServiceCallbacksConfig `yaml:"callbacks"`
+}
+
+type ServiceCallbacksConfig struct {
+	PreDeployment  []string `yaml:"preDeployment"`
+	PostDeployment []string `yaml:"postDeployment"`
 }
 
 type ServiceDefaultsConfig struct {

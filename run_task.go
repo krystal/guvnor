@@ -126,17 +126,7 @@ func (e *Engine) interactiveAttach(ctx context.Context, id string) (chan struct{
 	return doneChan, nil
 }
 
-func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
-	svc, err := e.loadServiceConfig(args.ServiceName)
-	if err != nil {
-		return err
-	}
-
-	task, ok := svc.Tasks[args.TaskName]
-	if !ok {
-		return errors.New("specified task cannot be found in config")
-	}
-
+func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTaskConfig, svc *ServiceConfig, injectEnv map[string]string) error {
 	image := fmt.Sprintf(
 		"%s:%s",
 		svc.Defaults.Image,
@@ -162,6 +152,7 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 	env := mergeEnv(
 		svc.Defaults.Env,
 		task.Env,
+		injectEnv,
 	)
 
 	mounts := []mount.Mount{}
@@ -178,7 +169,7 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 	fullName := fmt.Sprintf(
 		"%s-task-%s-%d",
 		svc.Name,
-		args.TaskName,
+		taskName,
 		time.Now().Unix(),
 	)
 
@@ -196,7 +187,7 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 
 		Labels: map[string]string{
 			serviceLabel: svc.Name,
-			taskLabel:    args.TaskName,
+			taskLabel:    taskName,
 			managedLabel: "1",
 		},
 	}
@@ -286,4 +277,18 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 	return e.docker.ContainerRemove(ctx, createRes.ID, types.ContainerRemoveOptions{
 		Force: true,
 	})
+}
+
+func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
+	svc, err := e.loadServiceConfig(args.ServiceName)
+	if err != nil {
+		return err
+	}
+
+	task, ok := svc.Tasks[args.TaskName]
+	if !ok {
+		return errors.New("specified task cannot be found in config")
+	}
+
+	return e.runTask(ctx, args.TaskName, &task, svc, nil)
 }
