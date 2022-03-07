@@ -23,4 +23,4 @@ Process containers orchestrated by Guvnor will include the following environment
 When a task is triggered as part of a hook, further environment variables are also provided:
 
 - `GUVNOR_DEPLOYMENT`: The ID of the the deployment (an incrementing counter)
-- `GUVNOR_HOOK_STAGE`: Either `PRE_DEPLOYMENT` or `POST_DEPLOYMENT`
+- `GUVNOR_CALLBACK`: Either `PRE_DEPLOYMENT` or `POST_DEPLOYMENT`

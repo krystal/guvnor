@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/krystal/guvnor/ready"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -21,6 +22,42 @@ type ServiceConfig struct {
 	Tasks     map[string]ServiceTaskConfig    `yaml:"tasks"`
 
 	Callbacks ServiceCallbacksConfig `yaml:"callbacks"`
+}
+
+func (sc *ServiceConfig) Validate(v *validator.Validate) error {
+	if err := v.Struct(sc); err != nil {
+		return err
+	}
+
+	// call custom validations
+	return sc.validateCallbacks()
+}
+
+// validateCallbacks ensures all callbacks are valid tasks
+func (sc *ServiceConfig) validateCallbacks() error {
+	for _, set := range [][]string{
+		sc.Callbacks.PostDeployment,
+		sc.Callbacks.PreDeployment,
+	} {
+		for _, taskName := range set {
+			task, ok := sc.Tasks[taskName]
+			if !ok {
+				return fmt.Errorf(
+					"task (%s) specified in callback not found",
+					taskName,
+				)
+			}
+
+			if task.Interactive {
+				return fmt.Errorf(
+					"interactive tasks may not be callbacks (%s)",
+					taskName,
+				)
+			}
+		}
+	}
+
+	return nil
 }
 
 type ServiceCallbacksConfig struct {
@@ -170,7 +207,7 @@ func (e *Engine) loadServiceConfig(serviceName string) (*ServiceConfig, error) {
 
 	cfg.Name = serviceName
 
-	if err := e.validate.Struct(cfg); err != nil {
+	if err := cfg.Validate(e.validate); err != nil {
 		return nil, err
 	}
 

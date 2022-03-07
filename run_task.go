@@ -153,6 +153,10 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 		svc.Defaults.Env,
 		task.Env,
 		injectEnv,
+		map[string]string{
+			"GUVNOR_TASK":    taskName,
+			"GUVNOR_SERVICE": svc.Name,
+		},
 	)
 
 	mounts := []mount.Mount{}

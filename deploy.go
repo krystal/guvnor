@@ -298,29 +298,34 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 	return nil
 }
 
-func (e *Engine) runHooks(ctx context.Context, svc *ServiceConfig, preDeploy bool, deploymentID int) error {
-	var hooks []string
+func (e *Engine) runCallbacks(
+	ctx context.Context,
+	svc *ServiceConfig,
+	preDeploy bool,
+	deploymentID int,
+) error {
+	var callbacks []string
 	var stage string
 	if preDeploy {
-		hooks = svc.Callbacks.PreDeployment
+		callbacks = svc.Callbacks.PreDeployment
 		stage = "PRE_DEPLOYMENT"
 	} else {
-		hooks = svc.Callbacks.PostDeployment
+		callbacks = svc.Callbacks.PostDeployment
 		stage = "POST_DEPLOYMENT"
 	}
-	e.log.Info("running hooks for deployment",
+	e.log.Info("running callbacks for deployment",
 		zap.String("stage", stage),
-		zap.Strings("hooks", hooks),
+		zap.Strings("callbacks", callbacks),
 	)
 
 	injectEnv := map[string]string{
 		"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
-		"GUVNOR_HOOK_STAGE": stage,
+		"GUVNOR_CALLBACK":   stage,
 	}
 
-	for _, taskName := range hooks {
+	for _, taskName := range callbacks {
 		task := svc.Tasks[taskName]
-		e.log.Info("running hook task",
+		e.log.Info("running callback task",
 			zap.String("task", taskName),
 			zap.Any("taskContent", task),
 		)
@@ -356,7 +361,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error
 		}
 	}()
 
-	if err := e.runHooks(ctx, svc, true, svcState.DeploymentID); err != nil {
+	if err := e.runCallbacks(ctx, svc, true, svcState.DeploymentID); err != nil {
 		return nil, err
 	}
 
@@ -372,7 +377,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error
 		}
 	}
 
-	if err := e.runHooks(ctx, svc, false, svcState.DeploymentID); err != nil {
+	if err := e.runCallbacks(ctx, svc, false, svcState.DeploymentID); err != nil {
 		return nil, err
 	}
 
