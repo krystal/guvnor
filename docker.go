@@ -73,7 +73,7 @@ func loadCredentialsFromDockerConfig(image string) (string, error) {
 func (e *Engine) pullImage(ctx context.Context, image string) error {
 	authStr, err := loadCredentialsFromDockerConfig(image)
 	if err != nil {
-		e.log.Warn(
+		e.log.Info(
 			"could not load docker credentials, using no auth",
 			zap.String("reason", err.Error()),
 		)
