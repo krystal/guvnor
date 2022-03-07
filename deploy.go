@@ -298,6 +298,45 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 	return nil
 }
 
+func (e *Engine) runCallbacks(
+	ctx context.Context,
+	svc *ServiceConfig,
+	preDeploy bool,
+	deploymentID int,
+) error {
+	var callbacks []string
+	var stage string
+	if preDeploy {
+		callbacks = svc.Callbacks.PreDeployment
+		stage = "PRE_DEPLOYMENT"
+	} else {
+		callbacks = svc.Callbacks.PostDeployment
+		stage = "POST_DEPLOYMENT"
+	}
+	e.log.Info("running callbacks for deployment",
+		zap.String("stage", stage),
+		zap.Strings("callbacks", callbacks),
+	)
+
+	injectEnv := map[string]string{
+		"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
+		"GUVNOR_CALLBACK":   stage,
+	}
+
+	for _, taskName := range callbacks {
+		task := svc.Tasks[taskName]
+		e.log.Info("running callback task",
+			zap.String("task", taskName),
+		)
+		err := e.runTask(ctx, taskName, &task, svc, injectEnv)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error) {
 	// Load config & state
 	svc, err := e.loadServiceConfig(args.ServiceName)
@@ -321,6 +360,10 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error
 		}
 	}()
 
+	if err := e.runCallbacks(ctx, svc, true, svcState.DeploymentID); err != nil {
+		return nil, err
+	}
+
 	// Setup caddy
 	if err := e.caddy.Init(ctx); err != nil {
 		return nil, err
@@ -331,6 +374,10 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if err := e.runCallbacks(ctx, svc, false, svcState.DeploymentID); err != nil {
+		return nil, err
 	}
 
 	// TODO: Tidy up any processes/containers that may have been removed from
