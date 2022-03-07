@@ -11,14 +11,23 @@ import (
 	"go.uber.org/zap"
 )
 
+type DeploymentStatus string
+
+var (
+	StatusSuccess    DeploymentStatus = "SUCCESS"
+	StatusInProgress DeploymentStatus = "IN_PROGRESS"
+	StatusFailure    DeploymentStatus = "FAILURE"
+)
+
 type FileBasedStore struct {
 	RootPath string
 	Log      *zap.Logger
 }
 
 type ServiceState struct {
-	DeploymentID   int       `json:"deploymentID"`
-	LastDeployedAt time.Time `json:"lastDeployedAt"`
+	DeploymentID     int              `json:"deploymentID"`
+	LastDeployedAt   time.Time        `json:"lastDeployedAt"`
+	DeploymentStatus DeploymentStatus `json:"deploymentStatus"`
 }
 
 func (fbs *FileBasedStore) servicePath(service string) string {

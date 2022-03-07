@@ -313,6 +313,13 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error
 	// Prepare state with values we will want to persist
 	svcState.DeploymentID += 1
 	svcState.LastDeployedAt = time.Now()
+	// Default to failure, we will set to success if we make it to the end.
+	svcState.DeploymentStatus = state.StatusFailure
+	defer func() {
+		if err := e.state.SaveServiceState(svc.Name, svcState); err != nil {
+			e.log.Error("failed to persist service state", zap.Error(err))
+		}
+	}()
 
 	// Setup caddy
 	if err := e.caddy.Init(ctx); err != nil {
@@ -329,10 +336,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error
 	// TODO: Tidy up any processes/containers that may have been removed from
 	// the spec.
 
-	if err := e.state.SaveServiceState(svc.Name, svcState); err != nil {
-		return nil, err
-	}
-
+	svcState.DeploymentStatus = state.StatusSuccess
 	return &DeployRes{
 		ServiceName:  svc.Name,
 		DeploymentID: svcState.DeploymentID,
