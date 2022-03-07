@@ -327,7 +327,6 @@ func (e *Engine) runCallbacks(
 		task := svc.Tasks[taskName]
 		e.log.Info("running callback task",
 			zap.String("task", taskName),
-			zap.Any("taskContent", task),
 		)
 		err := e.runTask(ctx, taskName, &task, svc, injectEnv)
 		if err != nil {
