@@ -1,19 +1,15 @@
 {
   "name": "docs",
-  "version": "0.0.1",
-  "description": "Docs for the Guvnor CLI tool",
-  "main": "index.js",
-  "authors": {
-    "name": "Krystal Hosting Ltd",
-    "email": "noah.stride@krystal.uk"
-  },
-  "repository": "github.com/krystal/guvnor/docs",
+  "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "dev": "vuepress dev src",
-    "build": "vuepress build src"
+    "dev": "nuxt",
+    "build": "nuxt build",
+    "start": "nuxt start",
+    "generate": "nuxt generate"
   },
-  "license": "MIT",
-  "devDependencies": {
-    "vuepress": "^1.5.3"
+  "dependencies": {
+    "@nuxt/content-theme-docs": "^0.11.0",
+    "nuxt": "^2.15.8"
   }
 }

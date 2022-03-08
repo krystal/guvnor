@@ -1,0 +1,27 @@
+name: Docs
+on:
+  push:
+    branches:
+     - main
+
+jobs:
+  docs:
+    name: docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup node
+        uses: actions/setup-node@v2.1.2
+        with:
+          node-version: 14
+      - name: install dependencies
+        run: npm install
+        working-directory: ./docs
+      - name: generate site
+        run: npm run generate
+        working-directory: ./docs
+      - name: deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/dist
