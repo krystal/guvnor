@@ -3,25 +3,14 @@ title: Introduction
 description: ''
 position: 1
 category: ''
-features:
-  - Feature 1
-  - Feature 2
-  - Feature 3
 ---
 
-<img src="/preview.png" class="light-img" width="1280" height="640" alt=""/>
-<img src="/preview-dark.png" class="dark-img" width="1280" height="640" alt=""/>
+**Guvnor**  
+*/ˈɡʌvnə/*  
+*(British informal) A boss.*
 
-[Module]() for [NuxtJS](https://nuxtjs.org).
+Guvnor is a simple tool designed for deploying containerised applications onto a Linux host, with a Caddy reverse-proxy automatically configured to provide free TLS for your site.
 
-<alert type="success">
+Krystal developed Guvnor for our own simple deployment needs, where tools such as Kubernetes would have been overly complicated. We hope that you too may find it useful.
 
-Your documentation has been created successfully!
-
-</alert>
-
-## Features
-
-<list :items="features"></list>
-
-<p class="flex items-center">Enjoy light and dark mode:&nbsp;<app-color-switcher class="inline-flex ml-2"></app-color-switcher></p>
+We use Guvnor to deploy Rails and Go containers, however, anything that runs in a container and exposes a port serving HTTP traffic can be deployed with Guvnor.
