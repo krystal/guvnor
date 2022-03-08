@@ -7,19 +7,13 @@ category: Guide
 
 ## Installation
 
-These manual steps are temporary.
-
-1. Download the binary from the releases page, or compile from source.
-2. Create `/etc/guvnor` and a `/etc/guvnor/config.yaml` similar to:
-
-    ```yaml
-    caddy:
-      image: docker.io/library/caddy:2.4.6-alpine
-    paths:
-      config: /etc/guvnor/services
-      state: /var/lib/guvnor
-    ```
-
-3. Ensure the config & state paths you've specified exist.
+```bash
+# Use this handy script to download the binary and place it in your bin or 
+# manually download the binary from our release page
+curl https://guvnor.k.io/install.sh | sudo bash
+# Run the init command to setup any default config
+guvnor init
+# You are now ready to go !
+```
 
 ## Deploying your first service
