@@ -1,3 +1,13 @@
+---
+title: Service Configuration
+description: ''
+position: 3
+category: Guide
+---
+
+Every service in Guvnor is represented by a YAML configuration file. This file has many options that let you configure which processes and tasks should be available as part of your service.
+
+```yaml
 # /etc/guvnor/services/identity.yaml
 
 defaults:
@@ -14,7 +24,6 @@ processes:
   web:
     command: ["bin/rails", "server"]
     quantity: 1
-    restartMode: standard
     privileged: true
     env:
       HOSTNAME: identity.k.io
@@ -22,31 +31,15 @@ processes:
       hostnames:
         - identity.k.io
         - identity.another.domain
-    readyCheck:
-      frequency: 2
-      maximum: 30
-      http:
-        timeout: 5
-        expectedStatus: 200
-        path: /login
-        headers:
-          - name: Host
-            value: identity.k.io
-      command:
-        command: ["stat" "/ready.txt"]
-        expectedExitCode: 0
 
   worker:
     command: ["bin/rake", "worker"]
     quantity: 4
-    restartMode: rolling
   
   cron:
     command: ["bin/rake", "cron"]
-    restartMode: replace
     network:
-      mode: host # or 'default'
-      containerPort: 8080 # not for host networking
+      mode: host
 
 tasks:
   console:
@@ -57,7 +50,8 @@ tasks:
     command: ["bin/rake", "db:migrate"]
 
   notifySlack:
-    image: slack:21.3.4
+    image: slack
+    imageTag: 21.3.4
     env:
       SLACK_CHANNEL: '#labs'
       SLACK_MESSAGE: "Do something {.Host}"
@@ -65,4 +59,4 @@ tasks:
 callbacks:
   preDeployment: [migrate]
   postDeployment: [notifySlack]
- 
+```
