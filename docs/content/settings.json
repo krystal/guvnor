@@ -1,0 +1,10 @@
+{
+  "title": "Guvnor Docs",
+  "url": "",
+  "logo": {
+    "light": "/logo-light.svg",
+    "dark": "/logo-dark.svg"
+  },
+  "github": "krystal/guvnor",
+  "twitter": "@krystal_labs"
+}
