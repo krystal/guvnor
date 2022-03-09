@@ -15,12 +15,22 @@ import (
 )
 
 type ServiceConfig struct {
-	Name     string                `yaml:"_"`
+	// Name is the unique identifier of the service, usually the name of the
+	// file it has been retrieved from.
+	Name string `yaml:"_"`
+	// Defaults is a series of configuration values to use by default in
+	// configuring process and task containers.
 	Defaults ServiceDefaultsConfig `yaml:"defaults"`
 
-	Processes map[string]ServiceProcessConfig `yaml:"processes"`
-	Tasks     map[string]ServiceTaskConfig    `yaml:"tasks"`
+	// Processes is a map of process name to configuration to deploy as part of
+	// this service.
+	Processes map[string]ServiceProcessConfig `yaml:"processes" validate:"dive"`
+	// Tasks is a map of task names to configuration that are available for
+	// invoking as part of this service.
+	Tasks map[string]ServiceTaskConfig `yaml:"tasks" validate:"dive"`
 
+	// Callbacks are definitions of Tasks to run when specific events occur,
+	// e.g before a deployment.
 	Callbacks ServiceCallbacksConfig `yaml:"callbacks"`
 }
 

@@ -12,16 +12,26 @@ import (
 )
 
 type HTTPHeader struct {
-	Name  string `yaml:"name"`
+	// Name is the key of the headers to set. This will be canonicalized.
+	Name string `yaml:"name"`
+	// Value is the value to set in the header specified by Name
 	Value string `yaml:"value"`
 }
 
 type HTTPCheck struct {
-	Host           string        `yaml:"-"`
-	ExpectedStatus int           `yaml:"expectedStatus"`
-	Path           string        `yaml:"path"`
-	Headers        []HTTPHeader  `yaml:"headers"`
-	Timeout        time.Duration `yaml:"timeout"`
+	// Host is the IP/Hostname + Port combination to connect to when making the
+	// request.
+	Host string `yaml:"-"`
+	// ExpectedStatus is the status code we expect the HTTP response to have.
+	// It defaults to 200.
+	ExpectedStatus int `yaml:"expectedStatus"`
+	// Path is the path that the HTTP request should be made to.
+	Path string `yaml:"path"`
+	// Headers is a slice of headers to attach to the HTTP request.
+	Headers []HTTPHeader `yaml:"headers"`
+	// Timeout is the amount of time to allow for the request, failing if the
+	// request takes longer. This defaults to 5 seconds.
+	Timeout time.Duration `yaml:"timeout"`
 }
 
 func (hc *HTTPCheck) Test(ctx context.Context) error {
@@ -34,6 +44,11 @@ func (hc *HTTPCheck) Test(ctx context.Context) error {
 	timeout := time.Second * 5
 	if hc.Timeout != 0 {
 		timeout = hc.Timeout
+	}
+
+	expectedStatus := 200
+	if hc.ExpectedStatus != 0 {
+		expectedStatus = hc.ExpectedStatus
 	}
 
 	var cancel func()
@@ -54,10 +69,10 @@ func (hc *HTTPCheck) Test(ctx context.Context) error {
 		return err
 	}
 
-	if res.StatusCode != hc.ExpectedStatus {
+	if res.StatusCode != expectedStatus {
 		return fmt.Errorf(
 			"unexpected status code (wanted %d, got %d)",
-			hc.ExpectedStatus,
+			expectedStatus,
 			res.StatusCode,
 		)
 	}
@@ -66,9 +81,13 @@ func (hc *HTTPCheck) Test(ctx context.Context) error {
 }
 
 type Check struct {
-	Frequency time.Duration `yaml:"frequency"`
-	Maximum   int           `yaml:"maximum"`
-	HTTP      *HTTPCheck    `yaml:"http"`
+	// Frequency is how often the check should be retried when we are trying to
+	// detect if the service comes online.
+	Frequency time.Duration `yaml:"frequency" validate:"required"`
+	// Maximum is the maximum number of attempts to make before giving up on
+	// the service coming online.
+	Maximum int        `yaml:"maximum" validate:"required"`
+	HTTP    *HTTPCheck `yaml:"http" validate:"required"`
 }
 
 // Test runs a check
