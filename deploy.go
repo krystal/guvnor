@@ -265,7 +265,16 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 
 		newPorts = append(newPorts, selectedPort)
 
-		// TODO: Verify it comes online
+		if process.ReadyCheck != nil {
+			if process.ReadyCheck.HTTP != nil {
+				process.ReadyCheck.HTTP.Host = "localhost:" + selectedPort
+			}
+			if err := process.ReadyCheck.Wait(
+				ctx, e.log.Named("ready"),
+			); err != nil {
+				return err
+			}
+		}
 	}
 
 	caddyBackendName := fmt.Sprintf("%s-%s", svc.Name, processName)

@@ -17,7 +17,7 @@ type HTTPHeader struct {
 }
 
 type HTTPCheck struct {
-	Host           string        `yaml:"host"`
+	Host           string        `yaml:"-"`
 	ExpectedStatus int           `yaml:"expectedStatus"`
 	Path           string        `yaml:"path"`
 	Headers        []HTTPHeader  `yaml:"headers"`
