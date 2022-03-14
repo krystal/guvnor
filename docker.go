@@ -56,7 +56,7 @@ func loadCredentialsFromDockerConfig(image string) (string, error) {
 	}
 
 	registryAuth, ok := dockerConf.Auths[indexName]
-	if !ok || registryAuth.Auth == "" {
+	if !ok || (registryAuth.Auth == "" && registryAuth.Username == "") {
 		return "", errors.New("no auth configured")
 	}
 
