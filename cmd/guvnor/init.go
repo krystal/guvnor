@@ -51,15 +51,15 @@ func newInitCmd() *cobra.Command {
 			return err
 		}
 
-		if err := os.Mkdir(configPath, 0o644); err != nil {
+		if err := os.Mkdir(configPath, 0o755); err != nil {
 			return err
 		}
 
-		if err := os.Mkdir(servicesPath, 0o644); err != nil {
+		if err := os.Mkdir(servicesPath, 0o755); err != nil {
 			return err
 		}
 
-		if err := os.Mkdir(statePath, 0o644); err != nil {
+		if err := os.Mkdir(statePath, 0o755); err != nil {
 			return err
 		}
 
