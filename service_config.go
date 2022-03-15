@@ -81,6 +81,13 @@ type ServiceDefaultsConfig struct {
 	Env      map[string]string    `yaml:"env"`
 	Mounts   []ServiceMountConfig `yaml:"mounts"`
 	Network  NetworkConfig        `yaml:"network"`
+
+	// User allows the default User/Group to be specified for task and
+	// process containers.
+	//
+	// The following formats are valid:
+	// [ user | user:group | uid | uid:gid | user:gid | uid:group ]
+	User string `yaml:"user"`
 }
 
 type ServiceMountConfig struct {
@@ -116,6 +123,8 @@ type NetworkConfig struct {
 }
 
 type ServiceProcessConfig struct {
+	parent *ServiceConfig
+
 	Image    string               `yaml:"image"`
 	ImageTag string               `yaml:"imageTag"`
 	Command  []string             `yaml:"command"`
@@ -126,6 +135,12 @@ type ServiceProcessConfig struct {
 
 	// Privileged grants all capabilities to the container.
 	Privileged bool `yaml:"privileged"`
+
+	// User allows the User/Group to be configured for the process container.
+	//
+	// The following formats are valid:
+	// [ user | user:group | uid | uid:gid | user:gid | uid:group ]
+	User string `yaml:"user"`
 
 	Network    NetworkConfig `yaml:"network"`
 	ReadyCheck *ready.Check  `yaml:"readyCheck"`
@@ -139,7 +154,16 @@ func (spc ServiceProcessConfig) GetQuantity() int {
 	return 1
 }
 
+func (spc ServiceProcessConfig) GetUser() string {
+	if spc.User != "" {
+		return spc.User
+	}
+	return spc.parent.Defaults.User
+}
+
 type ServiceTaskConfig struct {
+	parent *ServiceConfig
+
 	Image       string               `yaml:"image"`
 	ImageTag    string               `yaml:"imageTag"`
 	Command     []string             `yaml:"command"`
@@ -147,6 +171,19 @@ type ServiceTaskConfig struct {
 	Env         map[string]string    `yaml:"env"`
 	Mounts      []ServiceMountConfig `yaml:"mounts"`
 	Network     NetworkConfig        `yaml:"network"`
+
+	// User allows the User/Group to be configured for the task container.
+	//
+	// The following formats are valid:
+	// [ user | user:group | uid | uid:gid | user:gid | uid:group ]
+	User string `yaml:"user"`
+}
+
+func (t *ServiceTaskConfig) GetUser() string {
+	if t.User != "" {
+		return t.User
+	}
+	return t.parent.Defaults.User
 }
 
 var (
@@ -219,6 +256,16 @@ func (e *Engine) loadServiceConfig(serviceName string) (*ServiceConfig, error) {
 
 	if err := cfg.Validate(e.validate); err != nil {
 		return nil, err
+	}
+
+	for processName, process := range cfg.Processes {
+		process.parent = cfg
+		cfg.Processes[processName] = process
+	}
+
+	for taskName, task := range cfg.Tasks {
+		task.parent = cfg
+		cfg.Tasks[taskName] = task
 	}
 
 	return cfg, nil

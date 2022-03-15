@@ -177,10 +177,6 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 		time.Now().Unix(),
 	)
 
-	e.log.Info("creating container",
-		zap.String("taskRun", fullName),
-	)
-
 	containerConfig := &container.Config{
 		Cmd:   task.Command,
 		Image: image,
@@ -194,6 +190,8 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 			taskLabel:    taskName,
 			managedLabel: "1",
 		},
+
+		User: task.GetUser(),
 	}
 	hostConfig := &container.HostConfig{
 		Mounts: mounts,
@@ -208,6 +206,9 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 		)
 	}
 
+	e.log.Info("creating container",
+		zap.String("taskRun", fullName),
+	)
 	createRes, err := e.docker.ContainerCreate(
 		ctx,
 		containerConfig,

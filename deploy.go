@@ -216,6 +216,7 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 				managedLabel:    "1",
 			},
 			ExposedPorts: nat.PortSet{},
+			User:         process.GetUser(),
 		}
 		hostConfig := &container.HostConfig{
 			PortBindings: nat.PortMap{},
