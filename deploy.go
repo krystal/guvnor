@@ -2,7 +2,6 @@ package guvnor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -154,23 +153,11 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 			zap.String("containerName", fullName),
 		)
 
-		image := fmt.Sprintf(
-			"%s:%s",
-			svc.Defaults.Image,
-			svc.Defaults.ImageTag,
-		)
-		if process.Image != "" {
-			if process.ImageTag == "" {
-				return errors.New(
-					"imageTag must be specified when image specified",
-				)
-			}
-			image = fmt.Sprintf(
-				"%s:%s",
-				process.Image,
-				process.ImageTag,
-			)
+		image, err := process.GetImage()
+		if err != nil {
+			return err
 		}
+
 		if err := e.pullImage(ctx, image); err != nil {
 			return err
 		}

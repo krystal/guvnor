@@ -118,3 +118,153 @@ func Test_ServiceTaskConfig_GetUser(t *testing.T) {
 		})
 	}
 }
+
+func Test_ServiceProcessConfig_GetQuantity(t *testing.T) {
+	tests := []struct {
+		name string
+		spc  ServiceProcessConfig
+		want int
+	}{
+		{
+			name: "fallback",
+			spc:  ServiceProcessConfig{},
+			want: 1,
+		},
+		{
+			name: "overriden",
+			spc: ServiceProcessConfig{
+				Quantity: 12,
+			},
+			want: 12,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.spc.GetQuantity()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_ServiceProcessConfig_GetImage(t *testing.T) {
+	tests := []struct {
+		name    string
+		spc     ServiceProcessConfig
+		want    string
+		wantErr string
+	}{
+		{
+			name: "fallback",
+			spc: ServiceProcessConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:    "foo",
+						ImageTag: "bar",
+					},
+				},
+			},
+			want: "foo:bar",
+		},
+		{
+			name: "overriden",
+			spc: ServiceProcessConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:    "foo",
+						ImageTag: "bar",
+					},
+				},
+				Image:    "fizz",
+				ImageTag: "buzz",
+			},
+			want: "fizz:buzz",
+		},
+		{
+			name: "unspecified imageTag",
+			spc: ServiceProcessConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:    "foo",
+						ImageTag: "bar",
+					},
+				},
+				Image: "fizz",
+			},
+			wantErr: "imageTag must be specified when image specified",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.spc.GetImage()
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_ServiceTaskConfig_GetImage(t *testing.T) {
+	tests := []struct {
+		name    string
+		stc     ServiceTaskConfig
+		want    string
+		wantErr string
+	}{
+		{
+			name: "fallback",
+			stc: ServiceTaskConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:    "foo",
+						ImageTag: "bar",
+					},
+				},
+			},
+			want: "foo:bar",
+		},
+		{
+			name: "overriden",
+			stc: ServiceTaskConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:    "foo",
+						ImageTag: "bar",
+					},
+				},
+				Image:    "fizz",
+				ImageTag: "buzz",
+			},
+			want: "fizz:buzz",
+		},
+		{
+			name: "unspecified imageTag",
+			stc: ServiceTaskConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:    "foo",
+						ImageTag: "bar",
+					},
+				},
+				Image: "fizz",
+			},
+			wantErr: "imageTag must be specified when image specified",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.stc.GetImage()
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

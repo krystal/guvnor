@@ -161,6 +161,28 @@ func (spc ServiceProcessConfig) GetUser() string {
 	return spc.parent.Defaults.User
 }
 
+func (spc ServiceProcessConfig) GetImage() (string, error) {
+	image := fmt.Sprintf(
+		"%s:%s",
+		spc.parent.Defaults.Image,
+		spc.parent.Defaults.ImageTag,
+	)
+	if spc.Image != "" {
+		if spc.ImageTag == "" {
+			return "", errors.New(
+				"imageTag must be specified when image specified",
+			)
+		}
+		image = fmt.Sprintf(
+			"%s:%s",
+			spc.Image,
+			spc.ImageTag,
+		)
+	}
+
+	return image, nil
+}
+
 type ServiceTaskConfig struct {
 	parent *ServiceConfig
 
@@ -179,11 +201,33 @@ type ServiceTaskConfig struct {
 	User string `yaml:"user"`
 }
 
-func (t *ServiceTaskConfig) GetUser() string {
+func (t ServiceTaskConfig) GetUser() string {
 	if t.User != "" {
 		return t.User
 	}
 	return t.parent.Defaults.User
+}
+
+func (spc ServiceTaskConfig) GetImage() (string, error) {
+	image := fmt.Sprintf(
+		"%s:%s",
+		spc.parent.Defaults.Image,
+		spc.parent.Defaults.ImageTag,
+	)
+	if spc.Image != "" {
+		if spc.ImageTag == "" {
+			return "", errors.New(
+				"imageTag must be specified when image specified",
+			)
+		}
+		image = fmt.Sprintf(
+			"%s:%s",
+			spc.Image,
+			spc.ImageTag,
+		)
+	}
+
+	return image, nil
 }
 
 var (

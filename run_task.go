@@ -127,24 +127,10 @@ func (e *Engine) interactiveAttach(ctx context.Context, id string) (chan struct{
 }
 
 func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTaskConfig, svc *ServiceConfig, injectEnv map[string]string) error {
-	image := fmt.Sprintf(
-		"%s:%s",
-		svc.Defaults.Image,
-		svc.Defaults.ImageTag,
-	)
-	if task.Image != "" {
-		if task.ImageTag == "" {
-			return errors.New(
-				"imageTag must be specified when image specified",
-			)
-		}
-		image = fmt.Sprintf(
-			"%s:%s",
-			task.Image,
-			task.ImageTag,
-		)
+	image, err := task.GetImage()
+	if err != nil {
+		return err
 	}
-
 	if err := e.pullImage(ctx, image); err != nil {
 		return err
 	}
