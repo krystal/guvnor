@@ -10,7 +10,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/krystal/guvnor/state"
@@ -179,18 +178,6 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 			},
 		)
 
-		// Merge mounts and convert to docker API mounts
-		mounts := []mount.Mount{}
-		for _, mnt := range mergeMounts(
-			svc.Defaults.Mounts, process.Mounts,
-		) {
-			mounts = append(mounts, mount.Mount{
-				Type:   mount.TypeBind,
-				Source: mnt.Host,
-				Target: mnt.Container,
-			})
-		}
-
 		portProtocolBinding := selectedPort + "/tcp"
 		containerConfig := &container.Config{
 			Cmd:   process.Command,
@@ -210,7 +197,7 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 			RestartPolicy: container.RestartPolicy{
 				Name: "always",
 			},
-			Mounts:     mounts,
+			Mounts:     process.GetMounts(),
 			Privileged: process.Privileged,
 		}
 		if process.Network.Mode.IsHost(svc.Defaults.Network.Mode) {

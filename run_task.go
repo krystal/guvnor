@@ -10,7 +10,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stdcopy"
 	"go.uber.org/zap"
@@ -145,17 +144,6 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 		},
 	)
 
-	mounts := []mount.Mount{}
-	for _, mnt := range mergeMounts(
-		svc.Defaults.Mounts, task.Mounts,
-	) {
-		mounts = append(mounts, mount.Mount{
-			Type:   mount.TypeBind,
-			Source: mnt.Host,
-			Target: mnt.Container,
-		})
-	}
-
 	fullName := fmt.Sprintf(
 		"%s-task-%s-%d",
 		svc.Name,
@@ -180,7 +168,7 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 		User: task.GetUser(),
 	}
 	hostConfig := &container.HostConfig{
-		Mounts: mounts,
+		Mounts: task.GetMounts(),
 	}
 	if task.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
 		hostConfig.NetworkMode = "host"

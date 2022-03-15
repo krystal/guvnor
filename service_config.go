@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/docker/docker/api/types/mount"
 	"github.com/go-playground/validator/v10"
 	"github.com/krystal/guvnor/ready"
 	"github.com/pkg/errors"
@@ -183,6 +184,21 @@ func (spc ServiceProcessConfig) GetImage() (string, error) {
 	return image, nil
 }
 
+func (spc ServiceProcessConfig) GetMounts() []mount.Mount {
+	mounts := []mount.Mount{}
+	for _, mnt := range mergeMounts(
+		spc.parent.Defaults.Mounts, spc.Mounts,
+	) {
+		mounts = append(mounts, mount.Mount{
+			Type:   mount.TypeBind,
+			Source: mnt.Host,
+			Target: mnt.Container,
+		})
+	}
+
+	return mounts
+}
+
 type ServiceTaskConfig struct {
 	parent *ServiceConfig
 
@@ -201,33 +217,48 @@ type ServiceTaskConfig struct {
 	User string `yaml:"user"`
 }
 
-func (t ServiceTaskConfig) GetUser() string {
-	if t.User != "" {
-		return t.User
+func (stc ServiceTaskConfig) GetUser() string {
+	if stc.User != "" {
+		return stc.User
 	}
-	return t.parent.Defaults.User
+	return stc.parent.Defaults.User
 }
 
-func (spc ServiceTaskConfig) GetImage() (string, error) {
+func (stc ServiceTaskConfig) GetImage() (string, error) {
 	image := fmt.Sprintf(
 		"%s:%s",
-		spc.parent.Defaults.Image,
-		spc.parent.Defaults.ImageTag,
+		stc.parent.Defaults.Image,
+		stc.parent.Defaults.ImageTag,
 	)
-	if spc.Image != "" {
-		if spc.ImageTag == "" {
+	if stc.Image != "" {
+		if stc.ImageTag == "" {
 			return "", errors.New(
 				"imageTag must be specified when image specified",
 			)
 		}
 		image = fmt.Sprintf(
 			"%s:%s",
-			spc.Image,
-			spc.ImageTag,
+			stc.Image,
+			stc.ImageTag,
 		)
 	}
 
 	return image, nil
+}
+
+func (stc ServiceTaskConfig) GetMounts() []mount.Mount {
+	mounts := []mount.Mount{}
+	for _, mnt := range mergeMounts(
+		stc.parent.Defaults.Mounts, stc.Mounts,
+	) {
+		mounts = append(mounts, mount.Mount{
+			Type:   mount.TypeBind,
+			Source: mnt.Host,
+			Target: mnt.Container,
+		})
+	}
+
+	return mounts
 }
 
 var (
