@@ -26,6 +26,16 @@ var (
 	tableColour   = color.New(color.FgWhite)
 )
 
+func init() {
+	// This ensures colour is output during tests.
+	infoColour.EnableColor()
+	successColour.EnableColor()
+	normalColour.EnableColor()
+	tableColour.EnableColor()
+	labelColour.EnableColor()
+	errorColour.EnableColor()
+}
+
 func newRootCmd(subCommands ...*cobra.Command) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "guvnor",
@@ -75,6 +85,7 @@ type engine interface {
 	Purge(context.Context) error
 	RunTask(context.Context, guvnor.RunTaskArgs) error
 	Status(context.Context, guvnor.StatusArgs) (*guvnor.StatusRes, error)
+	Cleanup(context.Context, guvnor.CleanupArgs) error
 }
 
 func main() {
@@ -90,6 +101,7 @@ func main() {
 
 	eProv := stdEngineProvider(log, &serviceRootOverride)
 	root := newRootCmd(
+		newCleanupCommand(eProv),
 		newDeployCmd(eProv),
 		newEditCommand(eProv),
 		newInitCmd(),

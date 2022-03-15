@@ -83,16 +83,16 @@ func findFreePort() (string, error) {
 	return strconv.Itoa(lAddr.Port), nil
 }
 
-// purgePreviousProcessDeployment destroys containers of a specific svc-process
+// shutdownPreviousProcessDeployment destroys containers of a specific svc-process
 // combination of a specific deployment ID. This allows us to clean up older
 // deployments.
-func (e *Engine) purgePreviousProcessDeployment(
+func (e *Engine) shutdownPreviousProcessDeployment(
 	ctx context.Context,
 	deploymentToPurgeID int,
 	svc *ServiceConfig,
 	processName string,
 ) error {
-	e.log.Debug("purging previous process deployment",
+	e.log.Debug("shutting down previous process deployment",
 		zap.String("process", processName),
 		zap.String("service", svc.Name),
 		zap.Int("deployment", deploymentToPurgeID),
@@ -113,18 +113,12 @@ func (e *Engine) purgePreviousProcessDeployment(
 	}
 
 	for _, containerToShutdown := range listToShutdown {
-		e.log.Debug("removing previous deployment container",
+		e.log.Debug("shutting down previous deployment container",
 			zap.String("process", processName),
 			zap.String("service", svc.Name),
 			zap.String("container", containerToShutdown.ID),
 		)
-		err = e.docker.ContainerRemove(
-			ctx,
-			containerToShutdown.ID,
-			types.ContainerRemoveOptions{
-				Force: true,
-			},
-		)
+		err = e.docker.ContainerKill(ctx, containerToShutdown.ID, "SIGTERM")
 		if err != nil {
 			return err
 		}
@@ -271,7 +265,7 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 
 	// Shut down containers from previous generation
 	if deploymentID > 1 {
-		err := e.purgePreviousProcessDeployment(
+		err := e.shutdownPreviousProcessDeployment(
 			ctx, deploymentID-1, svc, processName,
 		)
 		if err != nil {

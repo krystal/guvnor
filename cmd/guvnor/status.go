@@ -33,13 +33,6 @@ func newStatusCmd(eP engineProvider) *cobra.Command {
 		}
 		serviceName := args[0]
 
-		infoColour.EnableColor()
-		successColour.EnableColor()
-		normalColour.EnableColor()
-		tableColour.EnableColor()
-		labelColour.EnableColor()
-		errorColour.EnableColor()
-
 		_, err = infoColour.Fprintf(
 			cmd.OutOrStdout(),
 			"🔎 Checking status of '%s'! Will be just a tick.\n",
