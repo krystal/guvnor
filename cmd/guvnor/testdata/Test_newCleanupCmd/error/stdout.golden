@@ -1,0 +1,7 @@
+[36m🗑 Cleaning up the default service's zombie containers.
+Usage:
+  cleanup <service> [flags]
+
+Flags:
+  -h, --help   help for cleanup
+
