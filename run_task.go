@@ -179,7 +179,7 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 
 	user := svc.Defaults.User
 	if task.User != "" {
-		user = svc.Defaults.User
+		user = task.User
 	}
 
 	containerConfig := &container.Config{

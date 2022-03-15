@@ -206,7 +206,7 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 
 		user := svc.Defaults.User
 		if process.User != "" {
-			user = svc.Defaults.User
+			user = process.User
 		}
 
 		portProtocolBinding := selectedPort + "/tcp"
