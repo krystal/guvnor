@@ -10,7 +10,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stdcopy"
 	"go.uber.org/zap"
@@ -127,24 +126,10 @@ func (e *Engine) interactiveAttach(ctx context.Context, id string) (chan struct{
 }
 
 func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTaskConfig, svc *ServiceConfig, injectEnv map[string]string) error {
-	image := fmt.Sprintf(
-		"%s:%s",
-		svc.Defaults.Image,
-		svc.Defaults.ImageTag,
-	)
-	if task.Image != "" {
-		if task.ImageTag == "" {
-			return errors.New(
-				"imageTag must be specified when image specified",
-			)
-		}
-		image = fmt.Sprintf(
-			"%s:%s",
-			task.Image,
-			task.ImageTag,
-		)
+	image, err := task.GetImage()
+	if err != nil {
+		return err
 	}
-
 	if err := e.pullImage(ctx, image); err != nil {
 		return err
 	}
@@ -158,17 +143,6 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 			"GUVNOR_SERVICE": svc.Name,
 		},
 	)
-
-	mounts := []mount.Mount{}
-	for _, mnt := range mergeMounts(
-		svc.Defaults.Mounts, task.Mounts,
-	) {
-		mounts = append(mounts, mount.Mount{
-			Type:   mount.TypeBind,
-			Source: mnt.Host,
-			Target: mnt.Container,
-		})
-	}
 
 	fullName := fmt.Sprintf(
 		"%s-task-%s-%d",
@@ -194,7 +168,7 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 		User: task.GetUser(),
 	}
 	hostConfig := &container.HostConfig{
-		Mounts: mounts,
+		Mounts: task.GetMounts(),
 	}
 	if task.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
 		hostConfig.NetworkMode = "host"

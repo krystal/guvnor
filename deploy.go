@@ -2,7 +2,6 @@ package guvnor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -11,7 +10,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/krystal/guvnor/state"
@@ -154,23 +152,11 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 			zap.String("containerName", fullName),
 		)
 
-		image := fmt.Sprintf(
-			"%s:%s",
-			svc.Defaults.Image,
-			svc.Defaults.ImageTag,
-		)
-		if process.Image != "" {
-			if process.ImageTag == "" {
-				return errors.New(
-					"imageTag must be specified when image specified",
-				)
-			}
-			image = fmt.Sprintf(
-				"%s:%s",
-				process.Image,
-				process.ImageTag,
-			)
+		image, err := process.GetImage()
+		if err != nil {
+			return err
 		}
+
 		if err := e.pullImage(ctx, image); err != nil {
 			return err
 		}
@@ -192,18 +178,6 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 			},
 		)
 
-		// Merge mounts and convert to docker API mounts
-		mounts := []mount.Mount{}
-		for _, mnt := range mergeMounts(
-			svc.Defaults.Mounts, process.Mounts,
-		) {
-			mounts = append(mounts, mount.Mount{
-				Type:   mount.TypeBind,
-				Source: mnt.Host,
-				Target: mnt.Container,
-			})
-		}
-
 		portProtocolBinding := selectedPort + "/tcp"
 		containerConfig := &container.Config{
 			Cmd:   process.Command,
@@ -223,7 +197,7 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 			RestartPolicy: container.RestartPolicy{
 				Name: "always",
 			},
-			Mounts:     mounts,
+			Mounts:     process.GetMounts(),
 			Privileged: process.Privileged,
 		}
 		if process.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
