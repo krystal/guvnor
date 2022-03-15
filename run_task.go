@@ -177,11 +177,6 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 		time.Now().Unix(),
 	)
 
-	user := svc.Defaults.User
-	if task.User != "" {
-		user = task.User
-	}
-
 	containerConfig := &container.Config{
 		Cmd:   task.Command,
 		Image: image,
@@ -196,7 +191,7 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 			managedLabel: "1",
 		},
 
-		User: user,
+		User: task.GetUser(),
 	}
 	hostConfig := &container.HostConfig{
 		Mounts: mounts,

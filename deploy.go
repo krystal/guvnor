@@ -204,11 +204,6 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 			})
 		}
 
-		user := svc.Defaults.User
-		if process.User != "" {
-			user = process.User
-		}
-
 		portProtocolBinding := selectedPort + "/tcp"
 		containerConfig := &container.Config{
 			Cmd:   process.Command,
@@ -221,7 +216,7 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 				managedLabel:    "1",
 			},
 			ExposedPorts: nat.PortSet{},
-			User:         user,
+			User:         process.GetUser(),
 		}
 		hostConfig := &container.HostConfig{
 			PortBindings: nat.PortMap{},
