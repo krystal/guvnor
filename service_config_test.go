@@ -322,12 +322,12 @@ func Test_ServiceProcessConfig_GetMounts(t *testing.T) {
 func Test_ServiceTaskConfig_GetMounts(t *testing.T) {
 	tests := []struct {
 		name string
-		spc  ServiceProcessConfig
+		stc  ServiceTaskConfig
 		want []mount.Mount
 	}{
 		{
 			name: "merged",
-			spc: ServiceProcessConfig{
+			stc: ServiceTaskConfig{
 				parent: &ServiceConfig{
 					Defaults: ServiceDefaultsConfig{
 						Mounts: []ServiceMountConfig{
@@ -362,7 +362,7 @@ func Test_ServiceTaskConfig_GetMounts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.spc.GetMounts()
+			got := tt.stc.GetMounts()
 			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
