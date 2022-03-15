@@ -81,6 +81,13 @@ type ServiceDefaultsConfig struct {
 	Env      map[string]string    `yaml:"env"`
 	Mounts   []ServiceMountConfig `yaml:"mounts"`
 	Network  NetworkConfig        `yaml:"network"`
+
+	// User allows the default User/Group to be specified for task and
+	// process containers.
+	//
+	// The following formats are valid:
+	// [ user | user:group | uid | uid:gid | user:gid | uid:group ]
+	User string `yaml:"user"`
 }
 
 type ServiceMountConfig struct {
@@ -127,6 +134,12 @@ type ServiceProcessConfig struct {
 	// Privileged grants all capabilities to the container.
 	Privileged bool `yaml:"privileged"`
 
+	// User allows the User/Group to be configured for the process container.
+	//
+	// The following formats are valid:
+	// [ user | user:group | uid | uid:gid | user:gid | uid:group ]
+	User string `yaml:"user"`
+
 	Network    NetworkConfig `yaml:"network"`
 	ReadyCheck *ready.Check  `yaml:"readyCheck"`
 }
@@ -147,6 +160,12 @@ type ServiceTaskConfig struct {
 	Env         map[string]string    `yaml:"env"`
 	Mounts      []ServiceMountConfig `yaml:"mounts"`
 	Network     NetworkConfig        `yaml:"network"`
+
+	// User allows the User/Group to be configured for the task container.
+	//
+	// The following formats are valid:
+	// [ user | user:group | uid | uid:gid | user:gid | uid:group ]
+	User string `yaml:"user"`
 }
 
 var (
