@@ -14,6 +14,7 @@ const (
 	taskLabel       = "io.k.guvnor.task"
 	deploymentLabel = "io.k.guvnor.deployment"
 	managedLabel    = "io.k.guvnor.managed"
+	portLabel       = "io.k.guvnor.port"
 )
 
 type Engine struct {
