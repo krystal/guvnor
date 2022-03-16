@@ -133,6 +133,10 @@ type ServiceProcessConfig struct {
 
 	Network    NetworkConfig `yaml:"network"`
 	ReadyCheck *ready.Check  `yaml:"readyCheck"`
+
+	// TODO: add validation to constrain this value
+	// "" || "default" || "replace"
+	RolloutStrategy string `yaml:"rolloutStrategy"`
 }
 
 func (spc ServiceProcessConfig) GetQuantity() int {
