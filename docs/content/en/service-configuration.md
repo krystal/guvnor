@@ -3,6 +3,7 @@ title: Service Configuration
 description: ''
 position: 3
 category: Guide
+fullscreen: true
 ---
 
 Every service in Guvnor is represented by a YAML configuration file. This file has many options that let you configure which processes and tasks should be available as part of your service.
@@ -35,7 +36,7 @@ processes:
   worker:
     command: ["bin/rake", "worker"]
     quantity: 4
-  
+
   cron:
     command: ["bin/rake", "cron"]
     network:

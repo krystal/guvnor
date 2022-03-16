@@ -2,5 +2,9 @@
   "title": "Guvnor Docs",
   "url": "https://krystal.github.io/guvnor/",
   "github": "krystal/guvnor",
-  "twitter": "@krystal_labs"
+  "twitter": "@krystal_labs",
+  "logo": {
+    "light": "/guvnor/logo-light.svg",
+    "dark": "/guvnor/logo-dark.svg"
+  }
 }

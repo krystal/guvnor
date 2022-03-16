@@ -3,6 +3,7 @@ title: Guvnor Configuration
 description: ''
 position: 3
 category: Guide
+fullscreen: true
 ---
 
 Guvnor has a global configuration file that can usually be found at `/etc/guvnor/config.yaml`. This file is used to control how Guvnor itself behaves, and how it configures Caddy.

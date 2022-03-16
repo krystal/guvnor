@@ -5,9 +5,7 @@ position: 1
 category: ''
 ---
 
-**Guvnor**  
-*/ˈɡʌvnə/*  
-*(British informal) A boss.*
+![Image](https://share.adam.ac/22/Github-Header-e6akZfVjD4lVg.jpg)
 
 Guvnor is a simple tool designed for deploying containerised applications onto a Linux host, with a Caddy reverse-proxy automatically configured to provide free TLS for your site.
 
