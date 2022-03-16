@@ -33,6 +33,10 @@ func TestHTTPCheck_Test(t *testing.T) {
 						Name:  "Foo",
 						Value: "Bar",
 					},
+					{
+						Name:  "Host",
+						Value: "google.com",
+					},
 				},
 			},
 			sendStatus: 200,
@@ -57,7 +61,11 @@ func TestHTTPCheck_Test(t *testing.T) {
 					assert.Equal(t, tt.hc.Path, r.URL.Path)
 
 					for _, hdr := range tt.hc.Headers {
-						assert.Equal(t, hdr.Value, r.Header.Get(hdr.Name))
+						if hdr.Name == "Host" {
+							assert.Equal(t, hdr.Value, r.Host)
+						} else {
+							assert.Equal(t, hdr.Value, r.Header.Get(hdr.Name))
+						}
 					}
 
 					rw.WriteHeader(tt.sendStatus)

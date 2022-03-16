@@ -64,6 +64,11 @@ func (hc *HTTPCheck) Test(ctx context.Context) error {
 		req.Header.Set(hdr.Name, hdr.Value)
 	}
 
+	userSpecifiedHost := req.Header.Get("Host")
+	if userSpecifiedHost != "" {
+		req.Host = userSpecifiedHost
+	}
+
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
