@@ -367,3 +367,117 @@ func Test_ServiceTaskConfig_GetMounts(t *testing.T) {
 		})
 	}
 }
+
+func Test_ServiceTaskConfig_GetNetworkMode(t *testing.T) {
+	var otherNetworkMode NetworkMode = "other"
+	tests := []struct {
+		name string
+		stc  ServiceTaskConfig
+		want NetworkMode
+	}{
+		{
+			name: "fallback",
+			stc: ServiceTaskConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Network: NetworkConfig{},
+					},
+				},
+			},
+			want: NetworkModeDefault,
+		},
+		{
+			name: "defaults",
+			stc: ServiceTaskConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Network: NetworkConfig{
+							Mode: &otherNetworkMode,
+						},
+					},
+				},
+			},
+			want: otherNetworkMode,
+		},
+		{
+			name: "overriden",
+			stc: ServiceTaskConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Network: NetworkConfig{
+							Mode: &otherNetworkMode,
+						},
+					},
+				},
+				Network: NetworkConfig{
+					Mode: &NetworkModeHost,
+				},
+			},
+			want: NetworkModeHost,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.stc.GetNetworkMode()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_ServiceProcessConfig_GetNetworkMode(t *testing.T) {
+	var otherNetworkMode NetworkMode = "other"
+	tests := []struct {
+		name string
+		spc  ServiceProcessConfig
+		want NetworkMode
+	}{
+		{
+			name: "fallback",
+			spc: ServiceProcessConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Network: NetworkConfig{},
+					},
+				},
+			},
+			want: NetworkModeDefault,
+		},
+		{
+			name: "defaults",
+			spc: ServiceProcessConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Network: NetworkConfig{
+							Mode: &otherNetworkMode,
+						},
+					},
+				},
+			},
+			want: otherNetworkMode,
+		},
+		{
+			name: "overriden",
+			spc: ServiceProcessConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Network: NetworkConfig{
+							Mode: &otherNetworkMode,
+						},
+					},
+				},
+				Network: NetworkConfig{
+					Mode: &NetworkModeHost,
+				},
+			},
+			want: NetworkModeHost,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.spc.GetNetworkMode()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

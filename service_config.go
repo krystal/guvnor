@@ -107,18 +107,6 @@ var (
 	NetworkModeHost    NetworkMode = "host"
 )
 
-func (nm *NetworkMode) IsHost(defaultConfig *NetworkMode) bool {
-	if nm != nil {
-		return *nm == NetworkModeHost
-	}
-
-	if defaultConfig != nil {
-		return *defaultConfig == NetworkModeHost
-	}
-
-	return false
-}
-
 type NetworkConfig struct {
 	Mode *NetworkMode `yaml:"mode"`
 }
@@ -199,6 +187,18 @@ func (spc ServiceProcessConfig) GetMounts() []mount.Mount {
 	return mounts
 }
 
+func (spc ServiceProcessConfig) GetNetworkMode() NetworkMode {
+	if spc.Network.Mode != nil {
+		return *spc.Network.Mode
+	}
+
+	if spc.parent.Defaults.Network.Mode != nil {
+		return *spc.parent.Defaults.Network.Mode
+	}
+
+	return NetworkModeDefault
+}
+
 type ServiceTaskConfig struct {
 	parent *ServiceConfig
 
@@ -259,6 +259,18 @@ func (stc ServiceTaskConfig) GetMounts() []mount.Mount {
 	}
 
 	return mounts
+}
+
+func (stc ServiceTaskConfig) GetNetworkMode() NetworkMode {
+	if stc.Network.Mode != nil {
+		return *stc.Network.Mode
+	}
+
+	if stc.parent.Defaults.Network.Mode != nil {
+		return *stc.parent.Defaults.Network.Mode
+	}
+
+	return NetworkModeDefault
 }
 
 var (

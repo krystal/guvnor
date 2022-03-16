@@ -170,7 +170,7 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 	hostConfig := &container.HostConfig{
 		Mounts: task.GetMounts(),
 	}
-	if task.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
+	if task.GetNetworkMode() == NetworkModeHost {
 		hostConfig.NetworkMode = "host"
 	} else {
 		hostConfig.ExtraHosts = append(hostConfig.ExtraHosts,

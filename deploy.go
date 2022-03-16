@@ -194,7 +194,7 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 			Mounts:     process.GetMounts(),
 			Privileged: process.Privileged,
 		}
-		if process.Network.Mode.IsHost(svc.Defaults.Network.Mode) {
+		if process.GetNetworkMode() == NetworkModeHost {
 			hostConfig.NetworkMode = "host"
 		} else {
 			natPort := nat.Port(portProtocolBinding)
