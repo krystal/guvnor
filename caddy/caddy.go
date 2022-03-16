@@ -359,15 +359,6 @@ func (cm *Manager) prependRoute(ctx context.Context, route *caddyhttp.Route) err
 	)
 }
 
-func (cm *Manager) DeleteBackend(ctx context.Context, backendName string) error {
-	// Fetch current config
-
-	// Find and filter out route group
-
-	// Persist to caddy
-	return nil
-}
-
 func (cm *Manager) doRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
 	var bodyToSend io.Reader
 	if body != nil {
