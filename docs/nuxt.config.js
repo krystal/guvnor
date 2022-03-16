@@ -5,6 +5,6 @@ export default theme({
     primaryColor: '#6911d6'
   },
   router: {
-    base: '/guvnor/'
+    base: '/'
   }
 })

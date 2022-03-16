@@ -4,7 +4,7 @@
   "github": "krystal/guvnor",
   "twitter": "@krystal_labs",
   "logo": {
-    "light": "/guvnor/logo-light.svg",
-    "dark": "/guvnor/logo-dark.svg"
+    "light": "/logo-light.svg",
+    "dark": "/logo-dark.svg"
   }
 }
