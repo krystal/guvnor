@@ -97,7 +97,7 @@ func (e *Engine) updateLoadbalancerForDeployment(ctx context.Context, svcName, p
 	)
 }
 
-func (e *Engine) getLastDeploymentContainers(ctx context.Context, svc, process string, deploymentID int) ([]deployedProcessContainer, error) {
+func (e *Engine) getLastDeploymentContainers(ctx context.Context, svc, process string, deploymentID int) (deployedContainerList, error) {
 	dockerContainers, err := e.docker.ContainerList(ctx, types.ContainerListOptions{
 		Filters: filters.NewArgs(
 			filters.Arg(
@@ -118,7 +118,7 @@ func (e *Engine) getLastDeploymentContainers(ctx context.Context, svc, process s
 		return nil, err
 	}
 
-	deployedContainers := []deployedProcessContainer{}
+	deployedContainers := deployedContainerList{}
 	for _, container := range dockerContainers {
 		deployedContainers = append(deployedContainers, deployedProcessContainer{
 			ID:   container.ID,
@@ -228,6 +228,19 @@ type deployedProcessContainer struct {
 	Port string
 }
 
+type deployedContainerList []deployedProcessContainer
+
+func (list *deployedContainerList) Pop() *deployedProcessContainer {
+	if len(*list) == 0 {
+		return nil
+	}
+
+	popped := (*list)[0]
+	*list = (*list)[1:]
+
+	return &popped
+}
+
 // TODO: It would be nice to extract these out and make them part of the
 // Strategy type to try and curtail the growth of this package
 func (e *Engine) deployServiceProcessDefaultStrategy(
@@ -238,8 +251,8 @@ func (e *Engine) deployServiceProcessDefaultStrategy(
 	process *ServiceProcessConfig,
 	deploymentID int,
 	image string,
-	lastDeploymentContainers *[]deployedProcessContainer,
-	newDeploymentContainers *[]deployedProcessContainer,
+	lastDeploymentContainers *deployedContainerList,
+	newDeploymentContainers *deployedContainerList,
 ) error {
 	container, err := e.startContainerForProcess(
 		ctx, i, processName, svc, process, deploymentID, image,
@@ -261,16 +274,7 @@ func (e *Engine) deployServiceProcessDefaultStrategy(
 		}
 	}
 
-	var containerToReplace *deployedProcessContainer
-	if len(*lastDeploymentContainers) > 0 {
-		containerToReplace = &(*lastDeploymentContainers)[0]
-		*lastDeploymentContainers = (*lastDeploymentContainers)[1:]
-		e.log.Debug("new container will replace old container",
-			zap.String("process", processName),
-			zap.String("service", svc.Name),
-			zap.String("oldContainer", containerToReplace.Name),
-		)
-	}
+	containerToReplace := lastDeploymentContainers.Pop()
 
 	// Add new healthy container to load balancer, replacing the old container
 	if len(process.Caddy.Hostnames) > 0 {
@@ -315,20 +319,10 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 	process *ServiceProcessConfig,
 	deploymentID int,
 	image string,
-	lastDeploymentContainers *[]deployedProcessContainer,
-	newDeploymentContainers *[]deployedProcessContainer,
+	lastDeploymentContainers *deployedContainerList,
+	newDeploymentContainers *deployedContainerList,
 ) error {
-	// Determine if theres an old container to remove
-	var containerToReplace *deployedProcessContainer
-	if len(*lastDeploymentContainers) > 0 {
-		containerToReplace = &(*lastDeploymentContainers)[0]
-		*lastDeploymentContainers = (*lastDeploymentContainers)[1:]
-		e.log.Debug("new container will replace old container",
-			zap.String("process", processName),
-			zap.String("service", svc.Name),
-			zap.String("oldContainer", containerToReplace.Name),
-		)
-	}
+	containerToReplace := lastDeploymentContainers.Pop()
 
 	// Remove old container from loadbalancer and shut it down
 	if containerToReplace != nil {
@@ -424,8 +418,8 @@ func (e *Engine) deployServiceProcess(
 
 	// Get containers from last deployment so we can replace them.
 	var err error
-	lastDeploymentContainers := []deployedProcessContainer{}
-	newDeploymentContainers := []deployedProcessContainer{}
+	lastDeploymentContainers := deployedContainerList{}
+	newDeploymentContainers := deployedContainerList{}
 	if svcState.DeploymentID > 1 {
 		lastDeploymentContainers, err = e.getLastDeploymentContainers(
 			ctx, svc.Name, processName, deploymentID,
