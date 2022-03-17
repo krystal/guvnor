@@ -112,7 +112,8 @@ type NetworkConfig struct {
 }
 
 type ServiceProcessConfig struct {
-	parent *ServiceConfig
+	parent *ServiceConfig `yaml:"_"`
+	name   string         `yaml:"_"`
 
 	Image    string               `yaml:"image"`
 	ImageTag string               `yaml:"imageTag"`
@@ -203,7 +204,8 @@ func (spc ServiceProcessConfig) GetNetworkMode() NetworkMode {
 }
 
 type ServiceTaskConfig struct {
-	parent *ServiceConfig
+	parent *ServiceConfig `yaml:"_"`
+	name   string         `yaml:"_"`
 
 	Image       string               `yaml:"image"`
 	ImageTag    string               `yaml:"imageTag"`
@@ -350,11 +352,13 @@ func (e *Engine) loadServiceConfig(serviceName string) (*ServiceConfig, error) {
 
 	for processName, process := range cfg.Processes {
 		process.parent = cfg
+		process.name = processName
 		cfg.Processes[processName] = process
 	}
 
 	for taskName, task := range cfg.Tasks {
 		task.parent = cfg
+		task.name = taskName
 		cfg.Tasks[taskName] = task
 	}
 

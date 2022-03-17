@@ -83,8 +83,8 @@ func findFreePort() (string, error) {
 	return strconv.Itoa(lAddr.Port), nil
 }
 
-func (e *Engine) updateLoadbalancerForDeployment(ctx context.Context, svcName, processName string, process *ServiceProcessConfig, containers []deployedProcessContainer) error {
-	caddyBackendName := fmt.Sprintf("%s-%s", svcName, processName)
+func (e *Engine) updateLoadbalancerForDeployment(ctx context.Context, svcName string, process *ServiceProcessConfig, containers []deployedProcessContainer) error {
+	caddyBackendName := fmt.Sprintf("%s-%s", svcName, process.name)
 	ports := []string{}
 	for _, container := range containers {
 		if container.Port != "" {
@@ -130,8 +130,8 @@ func (e *Engine) getLastDeploymentContainers(ctx context.Context, svc, process s
 	return deployedContainers, nil
 }
 
-func (e *Engine) startContainerForProcess(ctx context.Context, i int, processName string, svc *ServiceConfig, process *ServiceProcessConfig, deploymentID int, image string) (*deployedProcessContainer, error) {
-	fullName := containerFullName(svc.Name, deploymentID, processName, i)
+func (e *Engine) startContainerForProcess(ctx context.Context, i int, svc *ServiceConfig, process *ServiceProcessConfig, deploymentID int, image string) (*deployedProcessContainer, error) {
+	fullName := containerFullName(svc.Name, deploymentID, process.name, i)
 	selectedPort, err := findFreePort()
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (e *Engine) startContainerForProcess(ctx context.Context, i int, processNam
 		map[string]string{
 			"PORT":              selectedPort,
 			"GUVNOR_SERVICE":    svc.Name,
-			"GUVNOR_PROCESS":    processName,
+			"GUVNOR_PROCESS":    process.name,
 			"GUVNOR_DEPLOYMENT": fmt.Sprintf("%d", deploymentID),
 		},
 	)
@@ -156,7 +156,7 @@ func (e *Engine) startContainerForProcess(ctx context.Context, i int, processNam
 		Env:   env,
 		Labels: map[string]string{
 			serviceLabel:    svc.Name,
-			processLabel:    processName,
+			processLabel:    process.name,
 			deploymentLabel: fmt.Sprintf("%d", deploymentID),
 			managedLabel:    "1",
 			portLabel:       selectedPort,
@@ -192,7 +192,7 @@ func (e *Engine) startContainerForProcess(ctx context.Context, i int, processNam
 	}
 
 	e.log.Debug("starting new process container",
-		zap.String("process", processName),
+		zap.String("process", process.name),
 		zap.String("service", svc.Name),
 		zap.String("name", fullName),
 	)
@@ -251,7 +251,6 @@ func (list *deployedContainerList) pop() *deployedProcessContainer {
 func (e *Engine) deployServiceProcessDefaultStrategy(
 	ctx context.Context,
 	i int,
-	processName string,
 	svc *ServiceConfig,
 	process *ServiceProcessConfig,
 	deploymentID int,
@@ -260,7 +259,7 @@ func (e *Engine) deployServiceProcessDefaultStrategy(
 	newDeploymentContainers *deployedContainerList,
 ) error {
 	container, err := e.startContainerForProcess(
-		ctx, i, processName, svc, process, deploymentID, image,
+		ctx, i, svc, process, deploymentID, image,
 	)
 	if err != nil {
 		return err
@@ -284,14 +283,13 @@ func (e *Engine) deployServiceProcessDefaultStrategy(
 	// Add new healthy container to load balancer, replacing the old container
 	if len(process.Caddy.Hostnames) > 0 {
 		e.log.Debug("updating loadbalancer with new container",
-			zap.String("process", processName),
+			zap.String("process", process.name),
 			zap.String("service", svc.Name),
 		)
 		// Sync caddy configuration with new ports
 		err := e.updateLoadbalancerForDeployment(
 			ctx,
 			svc.Name,
-			processName,
 			process,
 			append(*lastDeploymentContainers, *newDeploymentContainers...),
 		)
@@ -303,7 +301,7 @@ func (e *Engine) deployServiceProcessDefaultStrategy(
 	// Shutdown old container
 	if containerToReplace != nil {
 		e.log.Debug("sending SIGTERM to old container",
-			zap.String("process", processName),
+			zap.String("process", process.name),
 			zap.String("service", svc.Name),
 			zap.String("oldContainer", containerToReplace.Name),
 		)
@@ -319,7 +317,6 @@ func (e *Engine) deployServiceProcessDefaultStrategy(
 func (e *Engine) deployServiceProcessReplaceStrategy(
 	ctx context.Context,
 	i int,
-	processName string,
 	svc *ServiceConfig,
 	process *ServiceProcessConfig,
 	deploymentID int,
@@ -333,7 +330,7 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 	if containerToReplace != nil {
 		if len(process.Caddy.Hostnames) > 0 {
 			e.log.Debug("removing old container from load balancer",
-				zap.String("process", processName),
+				zap.String("process", process.name),
 				zap.String("service", svc.Name),
 				zap.String("oldContainer", containerToReplace.Name),
 			)
@@ -341,7 +338,6 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 			err := e.updateLoadbalancerForDeployment(
 				ctx,
 				svc.Name,
-				processName,
 				process,
 				append(*lastDeploymentContainers, *newDeploymentContainers...),
 			)
@@ -350,7 +346,7 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 			}
 		}
 		e.log.Debug("killing old container, will wait",
-			zap.String("process", processName),
+			zap.String("process", process.name),
 			zap.String("service", svc.Name),
 			zap.String("oldContainer", containerToReplace.Name),
 		)
@@ -368,7 +364,7 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 	}
 
 	container, err := e.startContainerForProcess(
-		ctx, i, processName, svc, process, deploymentID, image,
+		ctx, i, svc, process, deploymentID, image,
 	)
 	if err != nil {
 		return err
@@ -390,14 +386,13 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 	// Add new healthy container to load balancer
 	if len(process.Caddy.Hostnames) > 0 {
 		e.log.Debug("updating loadbalancer with new container",
-			zap.String("process", processName),
+			zap.String("process", process.name),
 			zap.String("service", svc.Name),
 		)
 		// Sync caddy configuration with new ports
 		err := e.updateLoadbalancerForDeployment(
 			ctx,
 			svc.Name,
-			processName,
 			process,
 			append(*lastDeploymentContainers, *newDeploymentContainers...),
 		)
@@ -413,11 +408,10 @@ func (e *Engine) deployServiceProcess(
 	ctx context.Context,
 	svc *ServiceConfig,
 	svcState *state.ServiceState,
-	processName string,
 	process *ServiceProcessConfig,
 ) error {
 	e.log.Debug("deploying process",
-		zap.String("process", processName),
+		zap.String("process", process.name),
 		zap.String("service", svc.Name),
 	)
 
@@ -429,7 +423,7 @@ func (e *Engine) deployServiceProcess(
 	newDeploymentContainers := deployedContainerList{}
 	if svcState.DeploymentID > 1 {
 		lastDeploymentContainers, err = e.getLastDeploymentContainers(
-			ctx, svc.Name, processName, deploymentID,
+			ctx, svc.Name, process.name, deploymentID,
 		)
 		if err != nil {
 			return err
@@ -447,7 +441,7 @@ func (e *Engine) deployServiceProcess(
 
 	for i := 0; i < process.GetQuantity(); i++ {
 		e.log.Debug("deploying process instance",
-			zap.String("process", processName),
+			zap.String("process", process.name),
 			zap.String("service", svc.Name),
 		)
 
@@ -456,7 +450,6 @@ func (e *Engine) deployServiceProcess(
 			err := e.deployServiceProcessDefaultStrategy(
 				ctx,
 				i,
-				processName,
 				svc,
 				process,
 				deploymentID,
@@ -471,7 +464,6 @@ func (e *Engine) deployServiceProcess(
 			err := e.deployServiceProcessReplaceStrategy(
 				ctx,
 				i,
-				processName,
 				svc,
 				process,
 				deploymentID,
@@ -495,14 +487,13 @@ func (e *Engine) deployServiceProcess(
 	// during the roll out when the new deployment has less replicas
 	if len(process.Caddy.Hostnames) > 0 {
 		e.log.Debug("performing full reconciliation of process loadbalancer",
-			zap.String("process", processName),
+			zap.String("process", process.name),
 			zap.String("service", svc.Name),
 		)
 		// Sync caddy configuration with new ports
 		err := e.updateLoadbalancerForDeployment(
 			ctx,
 			svc.Name,
-			processName,
 			process,
 			newDeploymentContainers,
 		)
@@ -516,7 +507,7 @@ func (e *Engine) deployServiceProcess(
 	// replica count has decreased in the new deployment.
 	for _, oldContainer := range lastDeploymentContainers {
 		e.log.Debug("shutting down previous deployment container",
-			zap.String("process", processName),
+			zap.String("process", process.name),
 			zap.String("service", svc.Name),
 			zap.String("container", oldContainer.Name),
 		)
@@ -600,8 +591,8 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error
 		return nil, err
 	}
 
-	for processName, process := range svc.Processes {
-		err = e.deployServiceProcess(ctx, svc, svcState, processName, &process)
+	for _, process := range svc.Processes {
+		err = e.deployServiceProcess(ctx, svc, svcState, &process)
 		if err != nil {
 			return nil, err
 		}

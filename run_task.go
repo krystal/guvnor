@@ -125,7 +125,7 @@ func (e *Engine) interactiveAttach(ctx context.Context, id string) (chan struct{
 	return doneChan, nil
 }
 
-func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTaskConfig, svc *ServiceConfig, injectEnv map[string]string) error {
+func (e *Engine) runTask(ctx context.Context, task *ServiceTaskConfig, svc *ServiceConfig, injectEnv map[string]string) error {
 	image, err := task.GetImage()
 	if err != nil {
 		return err
@@ -139,7 +139,7 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 		task.Env,
 		injectEnv,
 		map[string]string{
-			"GUVNOR_TASK":    taskName,
+			"GUVNOR_TASK":    task.name,
 			"GUVNOR_SERVICE": svc.Name,
 		},
 	)
@@ -147,7 +147,7 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 	fullName := fmt.Sprintf(
 		"%s-task-%s-%d",
 		svc.Name,
-		taskName,
+		task.name,
 		time.Now().Unix(),
 	)
 
@@ -161,7 +161,7 @@ func (e *Engine) runTask(ctx context.Context, taskName string, task *ServiceTask
 
 		Labels: map[string]string{
 			serviceLabel: svc.Name,
-			taskLabel:    taskName,
+			taskLabel:    task.name,
 			managedLabel: "1",
 		},
 
@@ -269,5 +269,5 @@ func (e *Engine) RunTask(ctx context.Context, args RunTaskArgs) error {
 		return errors.New("specified task cannot be found in config")
 	}
 
-	return e.runTask(ctx, args.TaskName, &task, svc, nil)
+	return e.runTask(ctx, &task, svc, nil)
 }
