@@ -230,7 +230,7 @@ type deployedProcessContainer struct {
 
 type deployedContainerList []deployedProcessContainer
 
-func (list *deployedContainerList) Pop() *deployedProcessContainer {
+func (list *deployedContainerList) pop() *deployedProcessContainer {
 	if len(*list) == 0 {
 		return nil
 	}
@@ -274,7 +274,7 @@ func (e *Engine) deployServiceProcessDefaultStrategy(
 		}
 	}
 
-	containerToReplace := lastDeploymentContainers.Pop()
+	containerToReplace := lastDeploymentContainers.pop()
 
 	// Add new healthy container to load balancer, replacing the old container
 	if len(process.Caddy.Hostnames) > 0 {
@@ -322,7 +322,7 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 	lastDeploymentContainers *deployedContainerList,
 	newDeploymentContainers *deployedContainerList,
 ) error {
-	containerToReplace := lastDeploymentContainers.Pop()
+	containerToReplace := lastDeploymentContainers.pop()
 
 	// Remove old container from loadbalancer and shut it down
 	if containerToReplace != nil {

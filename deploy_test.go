@@ -120,3 +120,21 @@ func Test_mergeMounts(t *testing.T) {
 		})
 	}
 }
+
+func Test_deployedContainerList_Pop(t *testing.T) {
+	list := deployedContainerList{
+		{
+			ID: "first",
+		},
+	}
+
+	container := list.pop()
+	assert.Equal(t, &deployedProcessContainer{
+		ID: "first",
+	}, container)
+
+	assert.Len(t, list, 0)
+
+	container = list.pop()
+	assert.Nil(t, container)
+}
