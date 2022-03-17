@@ -97,7 +97,7 @@ func (e *Engine) updateLoadbalancerForDeployment(ctx context.Context, svcName, p
 	)
 }
 
-func (e *Engine) getLastDeploymentContainers(ctx context.Context, svc, process string, deploymentID int) ([]deployedProcessContainer, error) {
+func (e *Engine) getLastDeploymentContainers(ctx context.Context, svc, process string, deploymentID int) (deployedContainerList, error) {
 	dockerContainers, err := e.docker.ContainerList(ctx, types.ContainerListOptions{
 		Filters: filters.NewArgs(
 			filters.Arg(
@@ -118,7 +118,7 @@ func (e *Engine) getLastDeploymentContainers(ctx context.Context, svc, process s
 		return nil, err
 	}
 
-	deployedContainers := []deployedProcessContainer{}
+	deployedContainers := deployedContainerList{}
 	for _, container := range dockerContainers {
 		deployedContainers = append(deployedContainers, deployedProcessContainer{
 			ID:   container.ID,
@@ -191,6 +191,11 @@ func (e *Engine) startContainerForProcess(ctx context.Context, i int, processNam
 		)
 	}
 
+	e.log.Debug("starting new process container",
+		zap.String("process", processName),
+		zap.String("service", svc.Name),
+		zap.String("name", fullName),
+	)
 	res, err := e.docker.ContainerCreate(
 		ctx,
 		containerConfig,
@@ -228,7 +233,189 @@ type deployedProcessContainer struct {
 	Port string
 }
 
-func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, svcState *state.ServiceState, processName string, process *ServiceProcessConfig) error {
+type deployedContainerList []deployedProcessContainer
+
+func (list *deployedContainerList) pop() *deployedProcessContainer {
+	if len(*list) == 0 {
+		return nil
+	}
+
+	popped := (*list)[0]
+	*list = (*list)[1:]
+
+	return &popped
+}
+
+// TODO: It would be nice to extract these out and make them part of the
+// Strategy type to try and curtail the growth of this package
+func (e *Engine) deployServiceProcessDefaultStrategy(
+	ctx context.Context,
+	i int,
+	processName string,
+	svc *ServiceConfig,
+	process *ServiceProcessConfig,
+	deploymentID int,
+	image string,
+	lastDeploymentContainers *deployedContainerList,
+	newDeploymentContainers *deployedContainerList,
+) error {
+	container, err := e.startContainerForProcess(
+		ctx, i, processName, svc, process, deploymentID, image,
+	)
+	if err != nil {
+		return err
+	}
+	*newDeploymentContainers = append(*newDeploymentContainers, *container)
+
+	// Ensure new container is ready
+	if process.ReadyCheck != nil {
+		if process.ReadyCheck.HTTP != nil {
+			process.ReadyCheck.HTTP.Host = "localhost:" + container.Port
+		}
+		if err := process.ReadyCheck.Wait(
+			ctx, e.log.Named("ready"),
+		); err != nil {
+			return err
+		}
+	}
+
+	containerToReplace := lastDeploymentContainers.pop()
+
+	// Add new healthy container to load balancer, replacing the old container
+	if len(process.Caddy.Hostnames) > 0 {
+		e.log.Debug("updating loadbalancer with new container",
+			zap.String("process", processName),
+			zap.String("service", svc.Name),
+		)
+		// Sync caddy configuration with new ports
+		err := e.updateLoadbalancerForDeployment(
+			ctx,
+			svc.Name,
+			processName,
+			process,
+			append(*lastDeploymentContainers, *newDeploymentContainers...),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Shutdown old container
+	if containerToReplace != nil {
+		e.log.Debug("sending SIGTERM to old container",
+			zap.String("process", processName),
+			zap.String("service", svc.Name),
+			zap.String("oldContainer", containerToReplace.Name),
+		)
+		err = e.docker.ContainerKill(ctx, containerToReplace.ID, "SIGTERM")
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (e *Engine) deployServiceProcessReplaceStrategy(
+	ctx context.Context,
+	i int,
+	processName string,
+	svc *ServiceConfig,
+	process *ServiceProcessConfig,
+	deploymentID int,
+	image string,
+	lastDeploymentContainers *deployedContainerList,
+	newDeploymentContainers *deployedContainerList,
+) error {
+	containerToReplace := lastDeploymentContainers.pop()
+
+	// Remove old container from loadbalancer and shut it down
+	if containerToReplace != nil {
+		if len(process.Caddy.Hostnames) > 0 {
+			e.log.Debug("removing old container from load balancer",
+				zap.String("process", processName),
+				zap.String("service", svc.Name),
+				zap.String("oldContainer", containerToReplace.Name),
+			)
+			// Sync caddy configuration with new ports
+			err := e.updateLoadbalancerForDeployment(
+				ctx,
+				svc.Name,
+				processName,
+				process,
+				append(*lastDeploymentContainers, *newDeploymentContainers...),
+			)
+			if err != nil {
+				return err
+			}
+		}
+		e.log.Debug("killing old container, will wait",
+			zap.String("process", processName),
+			zap.String("service", svc.Name),
+			zap.String("oldContainer", containerToReplace.Name),
+		)
+
+		duration := time.Second * time.Duration(10)
+		err := e.docker.ContainerStop(
+			ctx,
+			containerToReplace.ID,
+			&duration,
+		)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	container, err := e.startContainerForProcess(
+		ctx, i, processName, svc, process, deploymentID, image,
+	)
+	if err != nil {
+		return err
+	}
+	*newDeploymentContainers = append(*newDeploymentContainers, *container)
+
+	// Ensure new container is ready
+	if process.ReadyCheck != nil {
+		if process.ReadyCheck.HTTP != nil {
+			process.ReadyCheck.HTTP.Host = "localhost:" + container.Port
+		}
+		if err := process.ReadyCheck.Wait(
+			ctx, e.log.Named("ready"),
+		); err != nil {
+			return err
+		}
+	}
+
+	// Add new healthy container to load balancer
+	if len(process.Caddy.Hostnames) > 0 {
+		e.log.Debug("updating loadbalancer with new container",
+			zap.String("process", processName),
+			zap.String("service", svc.Name),
+		)
+		// Sync caddy configuration with new ports
+		err := e.updateLoadbalancerForDeployment(
+			ctx,
+			svc.Name,
+			processName,
+			process,
+			append(*lastDeploymentContainers, *newDeploymentContainers...),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (e *Engine) deployServiceProcess(
+	ctx context.Context,
+	svc *ServiceConfig,
+	svcState *state.ServiceState,
+	processName string,
+	process *ServiceProcessConfig,
+) error {
 	e.log.Debug("deploying process",
 		zap.String("process", processName),
 		zap.String("service", svc.Name),
@@ -238,8 +425,8 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 
 	// Get containers from last deployment so we can replace them.
 	var err error
-	lastDeploymentContainers := []deployedProcessContainer{}
-	newDeploymentContainers := []deployedProcessContainer{}
+	lastDeploymentContainers := deployedContainerList{}
+	newDeploymentContainers := deployedContainerList{}
 	if svcState.DeploymentID > 1 {
 		lastDeploymentContainers, err = e.getLastDeploymentContainers(
 			ctx, svc.Name, processName, deploymentID,
@@ -264,67 +451,43 @@ func (e *Engine) deployServiceProcess(ctx context.Context, svc *ServiceConfig, s
 			zap.String("service", svc.Name),
 		)
 
-		container, err := e.startContainerForProcess(
-			ctx, i, processName, svc, process, deploymentID, image,
-		)
-		if err != nil {
-			return err
-		}
-		newDeploymentContainers = append(newDeploymentContainers, *container)
-
-		// Ensure new container is ready
-		if process.ReadyCheck != nil {
-			if process.ReadyCheck.HTTP != nil {
-				process.ReadyCheck.HTTP.Host = "localhost:" + container.Port
-			}
-			if err := process.ReadyCheck.Wait(
-				ctx, e.log.Named("ready"),
-			); err != nil {
-				return err
-			}
-		}
-
-		var containerToReplace deployedProcessContainer
-		if len(lastDeploymentContainers) > 0 {
-			containerToReplace, lastDeploymentContainers = lastDeploymentContainers[0], lastDeploymentContainers[1:]
-			e.log.Debug("new container will replace old container",
-				zap.String("process", processName),
-				zap.String("service", svc.Name),
-				zap.String("oldContainer", containerToReplace.Name),
-			)
-		}
-
-		// Add new healthy container to load balancer, replacing the old container
-		if len(process.Caddy.Hostnames) > 0 {
-			e.log.Debug("updating loadbalancer with new container",
-				zap.String("process", processName),
-				zap.String("service", svc.Name),
-			)
-			// Sync caddy configuration with new ports
-			err := e.updateLoadbalancerForDeployment(
+		switch process.DeploymentStrategy {
+		case DefaultStrategy:
+			err := e.deployServiceProcessDefaultStrategy(
 				ctx,
-				svc.Name,
+				i,
 				processName,
+				svc,
 				process,
-				append(lastDeploymentContainers, newDeploymentContainers...),
+				deploymentID,
+				image,
+				&lastDeploymentContainers,
+				&newDeploymentContainers,
 			)
 			if err != nil {
 				return err
 			}
+		case ReplaceStrategy:
+			err := e.deployServiceProcessReplaceStrategy(
+				ctx,
+				i,
+				processName,
+				svc,
+				process,
+				deploymentID,
+				image,
+				&lastDeploymentContainers,
+				&newDeploymentContainers,
+			)
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf(
+				"unknown strategy '%s'", process.DeploymentStrategy,
+			)
 		}
 
-		// Shutdown old container
-		if containerToReplace.ID != "" {
-			e.log.Debug("sending SIGTERM to old container",
-				zap.String("process", processName),
-				zap.String("service", svc.Name),
-				zap.String("oldContainer", containerToReplace.Name),
-			)
-			err = e.docker.ContainerKill(ctx, containerToReplace.ID, "SIGTERM")
-			if err != nil {
-				return err
-			}
-		}
 	}
 
 	// Perform a full reconciliation of the Caddy configuration with just the
