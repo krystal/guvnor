@@ -135,8 +135,7 @@ type ServiceProcessConfig struct {
 	ReadyCheck *ready.Check  `yaml:"readyCheck"`
 
 	// TODO: add validation to constrain this value
-	// "" || "default" || "replace"
-	RolloutStrategy string `yaml:"rolloutStrategy"`
+	DeploymentStrategy DeploymentStrategy `yaml:"deploymentStrategy"`
 }
 
 func (spc ServiceProcessConfig) GetQuantity() int {
