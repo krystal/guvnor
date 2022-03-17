@@ -550,7 +550,7 @@ func (e *Engine) runCallbacks(
 		e.log.Info("running callback task",
 			zap.String("task", taskName),
 		)
-		err := e.runTask(ctx, taskName, &task, svc, injectEnv)
+		err := e.runTask(ctx, &task, svc, injectEnv)
 		if err != nil {
 			return err
 		}
