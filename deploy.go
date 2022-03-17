@@ -191,6 +191,11 @@ func (e *Engine) startContainerForProcess(ctx context.Context, i int, processNam
 		)
 	}
 
+	e.log.Debug("starting new process container",
+		zap.String("process", processName),
+		zap.String("service", svc.Name),
+		zap.String("name", fullName),
+	)
 	res, err := e.docker.ContainerCreate(
 		ctx,
 		containerConfig,
@@ -330,6 +335,7 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 			e.log.Debug("removing old container from load balancer",
 				zap.String("process", processName),
 				zap.String("service", svc.Name),
+				zap.String("oldContainer", containerToReplace.Name),
 			)
 			// Sync caddy configuration with new ports
 			err := e.updateLoadbalancerForDeployment(
@@ -346,6 +352,7 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 		e.log.Debug("killing old container, will wait",
 			zap.String("process", processName),
 			zap.String("service", svc.Name),
+			zap.String("oldContainer", containerToReplace.Name),
 		)
 
 		duration := time.Second * time.Duration(10)
