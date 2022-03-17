@@ -44,7 +44,7 @@ var stringToStrategy = map[string]DeploymentStrategy{
 }
 
 func (s DeploymentStrategy) MarshalYAML() (interface{}, error) {
-	return strategyToString[s], nil
+	return s.String(), nil
 }
 
 func (s *DeploymentStrategy) UnmarshalYAML(unmarshal func(interface{}) error) error {
