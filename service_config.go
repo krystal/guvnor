@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/mount"
 	"github.com/go-playground/validator/v10"
@@ -136,7 +137,16 @@ type ServiceProcessConfig struct {
 	ReadyCheck *ready.Check  `yaml:"readyCheck"`
 
 	// TODO: add validation to constrain this value
-	DeploymentStrategy DeploymentStrategy `yaml:"deploymentStrategy"`
+	DeploymentStrategy  DeploymentStrategy `yaml:"deploymentStrategy"`
+	ShutdownGracePeriod time.Duration      `yaml:"shutdownGracePeriod"`
+}
+
+func (spc ServiceProcessConfig) GetShutdownGracePeriod() time.Duration {
+	if spc.ShutdownGracePeriod == time.Duration(0) {
+		return time.Minute
+	}
+
+	return spc.ShutdownGracePeriod
 }
 
 func (spc ServiceProcessConfig) GetQuantity() int {

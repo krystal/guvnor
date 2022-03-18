@@ -345,17 +345,17 @@ func (e *Engine) deployServiceProcessReplaceStrategy(
 				return err
 			}
 		}
-		e.log.Debug("killing old container, will wait",
+
+		e.log.Debug("stopping old container, will wait grace period before killing",
 			zap.String("process", process.name),
 			zap.String("service", svc.Name),
 			zap.String("oldContainer", containerToReplace.Name),
+			zap.Duration("gracePeriod", process.ShutdownGracePeriod),
 		)
-
-		duration := time.Second * time.Duration(10)
 		err := e.docker.ContainerStop(
 			ctx,
 			containerToReplace.ID,
-			&duration,
+			&process.ShutdownGracePeriod,
 		)
 		if err != nil {
 			return err
