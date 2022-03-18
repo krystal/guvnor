@@ -1,6 +1,6 @@
 [36m🔎 Checking status of 'barg'! Will be just a tick.
 Usage:
-  status <service> [flags]
+  status [service] [flags]
 
 Flags:
   -h, --help   help for status

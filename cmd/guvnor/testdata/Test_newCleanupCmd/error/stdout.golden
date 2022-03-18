@@ -1,6 +1,6 @@
 [36m🗑 Cleaning up oops's zombie containers.
 Usage:
-  cleanup <service> [flags]
+  cleanup [service] [flags]
 
 Flags:
   -h, --help   help for cleanup
