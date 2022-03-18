@@ -3,6 +3,7 @@ package guvnor
 import (
 	"path"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types/mount"
 	"github.com/stretchr/testify/assert"
@@ -315,6 +316,34 @@ func Test_ServiceProcessConfig_GetMounts(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.spc.GetMounts()
 			assert.ElementsMatch(t, tt.want, got)
+		})
+	}
+}
+
+func Test_ServiceProcessConfig_GetShutdownGracePeriod(t *testing.T) {
+	tests := []struct {
+		name string
+		spc  ServiceProcessConfig
+		want time.Duration
+	}{
+		{
+			name: "default",
+			spc:  ServiceProcessConfig{},
+			want: time.Minute,
+		},
+		{
+			name: "value specified",
+			spc: ServiceProcessConfig{
+				ShutdownGracePeriod: time.Second * 12,
+			},
+			want: time.Second * 12,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.spc.GetShutdownGracePeriod()
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
