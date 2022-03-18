@@ -1,2 +1,3 @@
-[36m🔨 Deploying the default service. Hold on tight!
+[36m⚠️  No service argument provided. Finding default.
+[36m🔨 Deploying 'boris'. Hold on tight!
 [32m✅ Succesfully deployed 'boris'. Deployment ID is 200.

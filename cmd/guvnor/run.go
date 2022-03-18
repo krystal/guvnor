@@ -25,6 +25,18 @@ func newRunCmd(eP engineProvider) *cobra.Command {
 			taskName = args[1]
 		} else if len(args) == 1 {
 			taskName = args[0]
+			_, err = infoColour.Fprintln(
+				cmd.OutOrStdout(),
+				"⚠️  No service argument provided. Finding default.",
+			)
+			if err != nil {
+				return err
+			}
+			res, err := engine.GetDefaultService()
+			if err != nil {
+				return err
+			}
+			serviceName = res.Name
 		}
 
 		return engine.RunTask(cmd.Context(), guvnor.RunTaskArgs{

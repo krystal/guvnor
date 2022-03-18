@@ -18,7 +18,7 @@ func Test_newStatusCmd(t *testing.T) {
 		name      string
 		args      []string
 		wantArgs  *guvnor.StatusArgs
-		engineRes *guvnor.StatusRes
+		engineRes *guvnor.StatusResult
 		engineErr error
 		wantErr   string
 	}{
@@ -28,7 +28,7 @@ func Test_newStatusCmd(t *testing.T) {
 			wantArgs: &guvnor.StatusArgs{
 				ServiceName: "fizzler",
 			},
-			engineRes: &guvnor.StatusRes{
+			engineRes: &guvnor.StatusResult{
 				DeploymentID:   100,
 				LastDeployedAt: time.Date(2000, 11, 2, 12, 0, 0, 0, time.UTC),
 				Processes: map[string]guvnor.ProcessStatus{
@@ -61,6 +61,16 @@ func Test_newStatusCmd(t *testing.T) {
 			},
 		},
 		{
+			name: "default",
+			args: []string{},
+			wantArgs: &guvnor.StatusArgs{
+				ServiceName: "boris",
+			},
+			engineRes: &guvnor.StatusResult{
+				DeploymentID: 1,
+			},
+		},
+		{
 			name:      "error",
 			args:      []string{"barg"},
 			engineErr: errors.New("rats"),
@@ -87,6 +97,10 @@ func Test_newStatusCmd(t *testing.T) {
 						}),
 						*tt.wantArgs).
 					Return(tt.engineRes, tt.engineErr)
+				mEngine.
+					On("GetDefaultService").
+					Return(&guvnor.GetDefaultServiceResult{Name: "boris"}, nil).
+					Maybe()
 			}
 
 			cmd := newStatusCmd(provider)

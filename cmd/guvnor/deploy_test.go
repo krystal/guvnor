@@ -17,7 +17,7 @@ func Test_newDeployCmd(t *testing.T) {
 		name      string
 		args      []string
 		wantArgs  *guvnor.DeployArgs
-		engineRes *guvnor.DeployRes
+		engineRes *guvnor.DeployResult
 		engineErr error
 		wantErr   string
 	}{
@@ -27,7 +27,7 @@ func Test_newDeployCmd(t *testing.T) {
 			wantArgs: &guvnor.DeployArgs{
 				ServiceName: "fizzler",
 			},
-			engineRes: &guvnor.DeployRes{
+			engineRes: &guvnor.DeployResult{
 				ServiceName:  "fizzler",
 				DeploymentID: 100,
 			},
@@ -36,19 +36,19 @@ func Test_newDeployCmd(t *testing.T) {
 			name: "default service",
 			args: []string{},
 			wantArgs: &guvnor.DeployArgs{
-				ServiceName: "",
+				ServiceName: "boris",
 			},
-			engineRes: &guvnor.DeployRes{
+			engineRes: &guvnor.DeployResult{
 				ServiceName:  "boris",
 				DeploymentID: 200,
 			},
 		},
 		{
 			name:      "error",
-			args:      []string{},
+			args:      []string{"oops"},
 			engineErr: errors.New("rats"),
 			wantArgs: &guvnor.DeployArgs{
-				ServiceName: "",
+				ServiceName: "oops",
 			},
 			wantErr: "rats",
 		},
@@ -70,6 +70,10 @@ func Test_newDeployCmd(t *testing.T) {
 						}),
 						*tt.wantArgs).
 					Return(tt.engineRes, tt.engineErr)
+				mEngine.
+					On("GetDefaultService").
+					Return(&guvnor.GetDefaultServiceResult{Name: "boris"}, nil).
+					Maybe()
 			}
 
 			cmd := newDeployCmd(provider)

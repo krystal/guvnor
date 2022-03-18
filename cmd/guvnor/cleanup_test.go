@@ -31,15 +31,15 @@ func Test_newCleanupCmd(t *testing.T) {
 			name: "default service",
 			args: []string{},
 			wantArgs: &guvnor.CleanupArgs{
-				ServiceName: "",
+				ServiceName: "boris",
 			},
 		},
 		{
 			name:      "error",
-			args:      []string{},
+			args:      []string{"oops"},
 			engineErr: errors.New("rats"),
 			wantArgs: &guvnor.CleanupArgs{
-				ServiceName: "",
+				ServiceName: "oops",
 			},
 			wantErr: "rats",
 		},
@@ -61,6 +61,10 @@ func Test_newCleanupCmd(t *testing.T) {
 						}),
 						*tt.wantArgs).
 					Return(tt.engineErr)
+				mEngine.
+					On("GetDefaultService").
+					Return(&guvnor.GetDefaultServiceResult{Name: "boris"}, nil).
+					Maybe()
 			}
 
 			cmd := newCleanupCommand(provider)

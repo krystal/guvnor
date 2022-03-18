@@ -21,9 +21,9 @@ func (c colorWriter) Write(p []byte) (n int, err error) {
 
 func newStatusCmd(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "status <service>",
+		Use:   "status [service]",
 		Short: "Shows status of a specific service",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.RangeArgs(0, 1),
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -31,7 +31,24 @@ func newStatusCmd(eP engineProvider) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		serviceName := args[0]
+
+		serviceName := ""
+		if len(args) == 0 {
+			_, err = infoColour.Fprintln(
+				cmd.OutOrStdout(),
+				"⚠️  No service argument provided. Finding default.",
+			)
+			if err != nil {
+				return err
+			}
+			res, err := engine.GetDefaultService()
+			if err != nil {
+				return err
+			}
+			serviceName = res.Name
+		} else {
+			serviceName = args[0]
+		}
 
 		_, err = infoColour.Fprintf(
 			cmd.OutOrStdout(),

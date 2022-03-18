@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/mount"
 	"github.com/go-playground/validator/v10"
 	"github.com/krystal/guvnor/ready"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -288,55 +286,7 @@ func (stc ServiceTaskConfig) GetNetworkMode() NetworkMode {
 	return NetworkModeDefault
 }
 
-var (
-	ErrMultipleServices = errors.New("multiple services found, no default")
-	ErrNoService        = errors.New("no service found")
-)
-
-func findDefaultService(configPath string) (string, error) {
-	entries, err := os.ReadDir(configPath)
-	if err != nil {
-		return "", err
-	}
-
-	serviceName := ""
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		isYaml := strings.HasSuffix(entry.Name(), ".yaml")
-		if !isYaml {
-			continue
-		}
-
-		if serviceName != "" {
-			return "", ErrMultipleServices
-		}
-
-		serviceName = strings.TrimSuffix(entry.Name(), ".yaml")
-	}
-
-	if serviceName == "" {
-		return "", ErrNoService
-	}
-
-	return serviceName, nil
-}
-
 func (e *Engine) loadServiceConfig(serviceName string) (*ServiceConfig, error) {
-	if serviceName == "" {
-		var err error
-		serviceName, err = findDefaultService(e.config.Paths.Config)
-		if err != nil {
-			return nil, err
-		}
-		e.log.Debug(
-			"no service specified, defaulting",
-			zap.String("default", serviceName),
-		)
-	}
-
 	svcPath := path.Join(
 		e.config.Paths.Config,
 		fmt.Sprintf("%s.yaml", serviceName),
