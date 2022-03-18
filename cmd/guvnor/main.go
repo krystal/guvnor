@@ -81,11 +81,12 @@ func stdEngineProvider(log *zap.Logger, serviceRootOverride *string) func() (eng
 type engineProvider = func() (engine, *guvnor.EngineConfig, error)
 
 type engine interface {
-	Deploy(context.Context, guvnor.DeployArgs) (*guvnor.DeployRes, error)
+	Cleanup(context.Context, guvnor.CleanupArgs) error
+	Deploy(context.Context, guvnor.DeployArgs) (*guvnor.DeployResult, error)
+	GetDefaultService() (*guvnor.GetDefaultServiceResult, error)
 	Purge(context.Context) error
 	RunTask(context.Context, guvnor.RunTaskArgs) error
-	Status(context.Context, guvnor.StatusArgs) (*guvnor.StatusRes, error)
-	Cleanup(context.Context, guvnor.CleanupArgs) error
+	Status(context.Context, guvnor.StatusArgs) (*guvnor.StatusResult, error)
 }
 
 func main() {

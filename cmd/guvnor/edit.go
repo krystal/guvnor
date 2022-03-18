@@ -58,7 +58,7 @@ func newEditCommand(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "edit <service>",
 		Short:        "Opens a service configuration in your default editor and deploys it on saving.",
-		Args:         cobra.ExactArgs(1),
+		Args:         cobra.RangeArgs(0, 1),
 		SilenceUsage: true,
 	}
 
@@ -67,7 +67,24 @@ func newEditCommand(eP engineProvider) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		serviceName := args[0]
+
+		serviceName := ""
+		if len(args) == 0 {
+			_, err = infoColour.Fprintln(
+				cmd.OutOrStdout(),
+				"⚠️  No service argument provided. Finding default.",
+			)
+			if err != nil {
+				return err
+			}
+			res, err := engine.GetDefaultService()
+			if err != nil {
+				return err
+			}
+			serviceName = res.Name
+		} else {
+			serviceName = args[0]
+		}
 
 		editorPath := getEditor()
 		if editorPath == "" {

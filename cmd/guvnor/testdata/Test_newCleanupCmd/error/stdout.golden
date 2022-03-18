@@ -1,4 +1,4 @@
-[36m🗑 Cleaning up the default service's zombie containers.
+[36m🗑 Cleaning up oops's zombie containers.
 Usage:
   cleanup <service> [flags]
 

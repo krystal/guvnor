@@ -29,21 +29,44 @@ func (_m *mockEngine) Cleanup(_a0 context.Context, _a1 guvnor.CleanupArgs) error
 }
 
 // Deploy provides a mock function with given fields: _a0, _a1
-func (_m *mockEngine) Deploy(_a0 context.Context, _a1 guvnor.DeployArgs) (*guvnor.DeployRes, error) {
+func (_m *mockEngine) Deploy(_a0 context.Context, _a1 guvnor.DeployArgs) (*guvnor.DeployResult, error) {
 	ret := _m.Called(_a0, _a1)
 
-	var r0 *guvnor.DeployRes
-	if rf, ok := ret.Get(0).(func(context.Context, guvnor.DeployArgs) *guvnor.DeployRes); ok {
+	var r0 *guvnor.DeployResult
+	if rf, ok := ret.Get(0).(func(context.Context, guvnor.DeployArgs) *guvnor.DeployResult); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*guvnor.DeployRes)
+			r0 = ret.Get(0).(*guvnor.DeployResult)
 		}
 	}
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, guvnor.DeployArgs) error); ok {
 		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetDefaultService provides a mock function with given fields:
+func (_m *mockEngine) GetDefaultService() (*guvnor.GetDefaultServiceResult, error) {
+	ret := _m.Called()
+
+	var r0 *guvnor.GetDefaultServiceResult
+	if rf, ok := ret.Get(0).(func() *guvnor.GetDefaultServiceResult); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*guvnor.GetDefaultServiceResult)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -80,15 +103,15 @@ func (_m *mockEngine) RunTask(_a0 context.Context, _a1 guvnor.RunTaskArgs) error
 }
 
 // Status provides a mock function with given fields: _a0, _a1
-func (_m *mockEngine) Status(_a0 context.Context, _a1 guvnor.StatusArgs) (*guvnor.StatusRes, error) {
+func (_m *mockEngine) Status(_a0 context.Context, _a1 guvnor.StatusArgs) (*guvnor.StatusResult, error) {
 	ret := _m.Called(_a0, _a1)
 
-	var r0 *guvnor.StatusRes
-	if rf, ok := ret.Get(0).(func(context.Context, guvnor.StatusArgs) *guvnor.StatusRes); ok {
+	var r0 *guvnor.StatusResult
+	if rf, ok := ret.Get(0).(func(context.Context, guvnor.StatusArgs) *guvnor.StatusResult); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*guvnor.StatusRes)
+			r0 = ret.Get(0).(*guvnor.StatusResult)
 		}
 	}
 

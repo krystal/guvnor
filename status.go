@@ -25,7 +25,7 @@ type ProcessStatus struct {
 	Containers   []ContainerStatus
 }
 
-type StatusRes struct {
+type StatusResult struct {
 	DeploymentID   int
 	LastDeployedAt time.Time
 	Processes      ProcessStatuses
@@ -45,7 +45,7 @@ func (ps ProcessStatuses) OrderedKeys() []string {
 
 func (e *Engine) Status(
 	ctx context.Context, args StatusArgs,
-) (*StatusRes, error) {
+) (*StatusResult, error) {
 	svc, err := e.loadServiceConfig(args.ServiceName)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (e *Engine) Status(
 		processStatuses[processName] = ps
 	}
 
-	return &StatusRes{
+	return &StatusResult{
 		DeploymentID:   svcState.DeploymentID,
 		LastDeployedAt: svcState.LastDeployedAt,
 		Processes:      processStatuses,

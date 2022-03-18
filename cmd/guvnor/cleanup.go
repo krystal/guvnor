@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/krystal/guvnor"
 	"github.com/spf13/cobra"
 )
@@ -21,16 +19,27 @@ func newCleanupCommand(eP engineProvider) *cobra.Command {
 		}
 
 		serviceName := ""
-		deployingMessage := "the default service"
-		if len(args) == 1 {
+		if len(args) == 0 {
+			_, err = infoColour.Fprintln(
+				cmd.OutOrStdout(),
+				"⚠️  No service argument provided. Finding default.",
+			)
+			if err != nil {
+				return err
+			}
+			res, err := engine.GetDefaultService()
+			if err != nil {
+				return err
+			}
+			serviceName = res.Name
+		} else {
 			serviceName = args[0]
-			deployingMessage = fmt.Sprintf("'%s'", serviceName)
 		}
 
 		_, err = infoColour.Fprintf(
 			cmd.OutOrStdout(),
 			"🗑 Cleaning up %s's zombie containers.\n",
-			deployingMessage,
+			serviceName,
 		)
 		if err != nil {
 			return err

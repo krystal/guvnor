@@ -21,7 +21,7 @@ type DeployArgs struct {
 	Tag         string
 }
 
-type DeployRes struct {
+type DeployResult struct {
 	ServiceName  string
 	DeploymentID int
 }
@@ -559,7 +559,7 @@ func (e *Engine) runCallbacks(
 	return nil
 }
 
-func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error) {
+func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployResult, error) {
 	// Load config & state
 	svc, err := e.loadServiceConfig(args.ServiceName)
 	if err != nil {
@@ -606,7 +606,7 @@ func (e *Engine) Deploy(ctx context.Context, args DeployArgs) (*DeployRes, error
 	// the spec.
 
 	svcState.DeploymentStatus = state.StatusSuccess
-	return &DeployRes{
+	return &DeployResult{
 		ServiceName:  svc.Name,
 		DeploymentID: svcState.DeploymentID,
 	}, nil
