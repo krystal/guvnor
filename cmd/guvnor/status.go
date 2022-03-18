@@ -21,7 +21,7 @@ func (c colorWriter) Write(p []byte) (n int, err error) {
 
 func newStatusCmd(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "status <service>",
+		Use:   "status [service]",
 		Short: "Shows status of a specific service",
 		Args:  cobra.RangeArgs(0, 1),
 	}

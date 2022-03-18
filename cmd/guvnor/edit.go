@@ -56,7 +56,7 @@ func hashFile(path string) (string, error) {
 
 func newEditCommand(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "edit <service>",
+		Use:          "edit [service]",
 		Short:        "Opens a service configuration in your default editor and deploys it on saving.",
 		Args:         cobra.RangeArgs(0, 1),
 		SilenceUsage: true,

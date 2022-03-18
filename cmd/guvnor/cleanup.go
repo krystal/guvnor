@@ -7,7 +7,7 @@ import (
 
 func newCleanupCommand(eP engineProvider) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cleanup <service>",
+		Use:   "cleanup [service]",
 		Short: "Force kill zombie containers belonging to the service.",
 		Args:  cobra.RangeArgs(0, 1),
 	}
