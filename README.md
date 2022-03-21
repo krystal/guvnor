@@ -40,4 +40,4 @@ in production deployments.
 
 ---
 
-Checkout [https://krystal.github.io/guvnor/](https://krystal.github.io/guvnor/) for more information!
+Checkout [https://guvnor.k.io/](https://guvnor.k.io/) for more information!
