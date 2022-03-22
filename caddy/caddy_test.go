@@ -41,3 +41,66 @@ func TestManager_generateRouteForBackend(t *testing.T) {
 
 	assert.Equal(t, want, got)
 }
+
+func Test_sortRoutes(t *testing.T) {
+	routes := []route{
+		{
+			Group: "fallback",
+		},
+		{
+			MatcherSets: []matcherSet{
+				{
+					Host: []string{"foo.com"},
+					Path: []string{"/path/fizz"},
+				},
+			},
+		},
+		{
+			MatcherSets: []matcherSet{
+				{
+					Host: []string{"foo.com"},
+				},
+			},
+		},
+		{
+			MatcherSets: []matcherSet{
+				{
+					Host: []string{"foo.com"},
+					Path: []string{"/path"},
+				},
+			},
+		},
+	}
+
+	sortRoutes(routes)
+
+	want := []route{
+		{
+			MatcherSets: []matcherSet{
+				{
+					Host: []string{"foo.com"},
+					Path: []string{"/path/fizz"},
+				},
+			},
+		},
+		{
+			MatcherSets: []matcherSet{
+				{
+					Host: []string{"foo.com"},
+					Path: []string{"/path"},
+				},
+			},
+		},
+		{
+			MatcherSets: []matcherSet{
+				{
+					Host: []string{"foo.com"},
+				},
+			},
+		},
+		{
+			Group: "fallback",
+		},
+	}
+	assert.Equal(t, want, routes)
+}
