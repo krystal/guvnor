@@ -246,6 +246,8 @@ func (cm *Manager) generateRouteforBackend(backendName string, hostnames []strin
 		matcher.Path = []string{path}
 	}
 
+	route.MatcherSets = append(route.MatcherSets, matcher)
+
 	return route
 }
 
