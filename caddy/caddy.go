@@ -242,7 +242,7 @@ func (rp rpHandler) MarshalJSON() ([]byte, error) {
 	return json.Marshal(jsonMap)
 }
 
-func (cm *Manager) generateRouteforBackend(backendName string, hostnames []string, ports []string) (*caddyhttp.Route, error) {
+func (cm *Manager) generateRouteforBackend(backendName string, hostnames []string, ports []string, path string) (*caddyhttp.Route, error) {
 	handler := rpHandler{
 		Upstreams: reverseproxy.UpstreamPool{},
 	}
@@ -253,23 +253,35 @@ func (cm *Manager) generateRouteforBackend(backendName string, hostnames []strin
 		})
 	}
 
-	matcherJson, err := json.Marshal(caddyhttp.MatchHost(hostnames))
+	matcherJSON, err := json.Marshal(caddyhttp.MatchHost(hostnames))
 	if err != nil {
 		return nil, err
 	}
-	handlerJson, err := json.Marshal(handler)
+	handlerJSON, err := json.Marshal(handler)
 	if err != nil {
 		return nil, err
 	}
+
+	matcherSet := caddy.ModuleMap{
+		"host": json.RawMessage(matcherJSON),
+	}
+
+	if path != "" {
+		pathMatcherJSON, err := json.Marshal(caddyhttp.MatchPath{path})
+		if err != nil {
+			return nil, err
+		}
+
+		matcherSet["path"] = pathMatcherJSON
+	}
+
 	route := caddyhttp.Route{
 		Group: backendName,
 		MatcherSetsRaw: caddyhttp.RawMatcherSets{
-			{
-				"host": json.RawMessage(matcherJson),
-			},
+			matcherSet,
 		},
 		HandlersRaw: []json.RawMessage{
-			json.RawMessage(handlerJson),
+			json.RawMessage(handlerJSON),
 		},
 		Terminal: true,
 	}
@@ -284,10 +296,12 @@ func (cm *Manager) ConfigureBackend(
 	backendName string,
 	hostNames []string,
 	ports []string,
+	path string,
 ) error {
 	cm.Log.Info("configuring caddy for backend",
 		zap.String("backend", backendName),
 		zap.Strings("hostnames", hostNames),
+		zap.String("path", path),
 		zap.Strings("ports", ports),
 	)
 	// Fetch current config
@@ -296,7 +310,7 @@ func (cm *Manager) ConfigureBackend(
 		return err
 	}
 
-	routeConfig, err := cm.generateRouteforBackend(backendName, hostNames, ports)
+	routeConfig, err := cm.generateRouteforBackend(backendName, hostNames, ports, path)
 	if err != nil {
 		return err
 	}
