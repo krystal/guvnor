@@ -98,9 +98,13 @@ func Test_route_UnmarshalJSON(t *testing.T) {
 							},
 						},
 					},
+					staticResponseHandler{
+						Body:       "boo",
+						StatusCode: "200",
+					},
 				},
 			},
-			data: []byte(`{"group":"fizz","match":[{"host":["guvnor.k.io"]},{"host":["guvnor.k.io"],"path":["/help"]}],"handle":[{"handler":"reverse_proxy","upstreams":[{"dial":"google.com"}]},{"handler":"reverse_proxy","upstreams":[{"dial":"facebook.com"}]}],"terminal":true}`),
+			data: []byte(`{"group":"fizz","match":[{"host":["guvnor.k.io"]},{"host":["guvnor.k.io"],"path":["/help"]}],"handle":[{"handler":"reverse_proxy","upstreams":[{"dial":"google.com"}]},{"handler":"reverse_proxy","upstreams":[{"dial":"facebook.com"}]},{"handler":"static_response","body":"boo","status_code":"200"}],"terminal":true}`),
 		},
 		{
 			name:    "invalid handler",
