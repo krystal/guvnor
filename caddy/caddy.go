@@ -302,8 +302,6 @@ func (cm *Manager) ConfigureBackend(
 	existingRoute := false
 	for i, route := range routes {
 		if route.Group == backendName {
-			cm.Log.Debug("found existing route, patching", zap.Int("i", i))
-
 			routes[i] = routeConfig
 			existingRoute = true
 		}
@@ -314,7 +312,6 @@ func (cm *Manager) ConfigureBackend(
 
 	sortRoutes(routes)
 
-	cm.Log.Debug("no existing route group found, prepending")
 	return cm.patchRoutes(ctx, routes)
 }
 
