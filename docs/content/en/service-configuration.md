@@ -32,6 +32,7 @@ processes:
       hostnames:
         - identity.k.io
         - identity.another.domain
+      path: /fizz/*
 
   worker:
     command: ["bin/rake", "worker"]
@@ -61,3 +62,18 @@ callbacks:
   preDeployment: [migrate]
   postDeployment: [notifySlack]
 ```
+
+## Path routing
+
+Path routing allows requests for certain paths to be directed to a different service. Path matching is case insensitive and exact by default, but wildcards can be used.
+
+For example, to route the traffic for all paths and subpaths of `example.com/fizz`, configure the caddy option within your service as so:
+
+```yaml
+caddy:
+  hostnames:
+    - example.com
+  path: /fizz/*
+```
+
+Matching precedence for paths is based on the number of segments in the path, so a service configured with `/fizz/buzz/*` will take precedence over `/fizz/*` which in turn has precedence over a service configured with just a hostname.
