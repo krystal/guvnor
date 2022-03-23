@@ -97,6 +97,7 @@ type ServiceMountConfig struct {
 
 type ProcessCaddyConfig struct {
 	Hostnames []string `yaml:"hostnames"`
+	Path      string   `yaml:"path"`
 }
 
 type NetworkMode string

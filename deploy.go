@@ -93,7 +93,7 @@ func (e *Engine) updateLoadbalancerForDeployment(ctx context.Context, svcName st
 	}
 
 	return e.caddy.ConfigureBackend(
-		ctx, caddyBackendName, process.Caddy.Hostnames, ports,
+		ctx, caddyBackendName, process.Caddy.Hostnames, ports, process.Caddy.Path,
 	)
 }
 

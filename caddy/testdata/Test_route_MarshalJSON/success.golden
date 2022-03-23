@@ -1,0 +1,1 @@
+{"group":"fizz","match":[{"host":["guvnor.k.io"]},{"host":["guvnor.k.io"],"path":["/help"]}],"handle":[{"handler":"reverse_proxy","upstreams":[{"dial":"google.com"}]},{"handler":"reverse_proxy","upstreams":[{"dial":"facebook.com"}]}],"terminal":true}

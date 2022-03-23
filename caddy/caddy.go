@@ -9,11 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
-	"github.com/caddyserver/caddy/v2/modules/caddyhttp/reverseproxy"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -220,61 +221,58 @@ func (cm *Manager) Init(ctx context.Context) error {
 	return nil
 }
 
-type rpHandler reverseproxy.Handler
-
-func (rp rpHandler) MarshalJSON() ([]byte, error) {
-	// If there is a higher power, I hope they forgive me for this.
-	// Unfortunately, the types exposed by Caddy actually do not marshal by
-	// default in a way that Caddy itself can understand, a "handler" key must
-	// be injected to identify the type of the handler.
-	data, err := json.Marshal(reverseproxy.Handler(rp))
-	if err != nil {
-		return nil, err
+func (cm *Manager) generateRouteforBackend(backendName string, hostnames []string, ports []string, path string) route {
+	route := route{
+		Group:       backendName,
+		MatcherSets: []matcherSet{},
+		Handlers:    handlers{},
+		Terminal:    true,
 	}
 
-	jsonMap := map[string]interface{}{}
-	if err := json.Unmarshal(data, &jsonMap); err != nil {
-		return nil, err
+	// Configure handler
+	handler := reverseProxyHandler{
+		Upstreams: []upstream{},
 	}
-
-	jsonMap["handler"] = "reverse_proxy"
-
-	return json.Marshal(jsonMap)
-}
-
-func (cm *Manager) generateRouteforBackend(backendName string, hostnames []string, ports []string) (*caddyhttp.Route, error) {
-	handler := rpHandler{
-		Upstreams: reverseproxy.UpstreamPool{},
-	}
-
 	for _, port := range ports {
-		handler.Upstreams = append(handler.Upstreams, &reverseproxy.Upstream{
+		handler.Upstreams = append(handler.Upstreams, upstream{
 			Dial: fmt.Sprintf("localhost:%s", port),
 		})
 	}
+	route.Handlers = append(route.Handlers, handler)
 
-	matcherJson, err := json.Marshal(caddyhttp.MatchHost(hostnames))
-	if err != nil {
-		return nil, err
-	}
-	handlerJson, err := json.Marshal(handler)
-	if err != nil {
-		return nil, err
-	}
-	route := caddyhttp.Route{
-		Group: backendName,
-		MatcherSetsRaw: caddyhttp.RawMatcherSets{
-			{
-				"host": json.RawMessage(matcherJson),
-			},
-		},
-		HandlersRaw: []json.RawMessage{
-			json.RawMessage(handlerJson),
-		},
-		Terminal: true,
+	matcher := matcherSet{
+		Host: hostnames,
 	}
 
-	return &route, nil
+	if path != "" {
+		matcher.Path = []string{path}
+	}
+
+	route.MatcherSets = append(route.MatcherSets, matcher)
+
+	return route
+}
+
+// Sorts routes by the length of their path segment. This ensures they are
+// matched in the correct order.
+func sortRoutes(routes []route) {
+	pathLength := func(route route) int {
+		if len(route.MatcherSets) == 0 {
+			return -1
+		}
+		matcher := route.MatcherSets[0]
+
+		if len(matcher.Path) == 0 || matcher.Path[0] == "" {
+			return 0
+		}
+
+		segments := len(strings.Split(matcher.Path[0], "/"))
+
+		return segments
+	}
+	sort.SliceStable(routes, func(i, j int) bool {
+		return pathLength(routes[i]) > pathLength(routes[j])
+	})
 }
 
 // ConfigureBackend sets up the appropriate routes in Caddy for a
@@ -284,54 +282,42 @@ func (cm *Manager) ConfigureBackend(
 	backendName string,
 	hostNames []string,
 	ports []string,
+	path string,
 ) error {
 	cm.Log.Info("configuring caddy for backend",
 		zap.String("backend", backendName),
 		zap.Strings("hostnames", hostNames),
+		zap.String("path", path),
 		zap.Strings("ports", ports),
 	)
 	// Fetch current config
-	currentRoutes, err := cm.getRoutes(ctx)
+	routes, err := cm.getRoutes(ctx)
 	if err != nil {
 		return err
 	}
 
-	routeConfig, err := cm.generateRouteforBackend(backendName, hostNames, ports)
-	if err != nil {
-		return err
-	}
+	routeConfig := cm.generateRouteforBackend(backendName, hostNames, ports, path)
 
 	// Find and update existing route group
-	for i, route := range currentRoutes {
+	existingRoute := false
+	for i, route := range routes {
 		if route.Group == backendName {
-			cm.Log.Debug("found existing route, patching", zap.Int("i", i))
-
-			return cm.patchRoute(ctx, i, routeConfig)
+			routes[i] = routeConfig
+			existingRoute = true
 		}
 	}
+	if !existingRoute {
+		routes = append(routes, routeConfig)
+	}
 
-	cm.Log.Debug("no existing route group found, prepending")
-	return cm.prependRoute(ctx, routeConfig)
-}
+	sortRoutes(routes)
 
-func (cm *Manager) patchRoute(ctx context.Context, index int, route *caddyhttp.Route) error {
-	routeConfigPath := fmt.Sprintf(
-		"config/apps/http/servers/%s/routes/%d",
-		guvnorServerName,
-		index,
-	)
-	return cm.doRequest(
-		ctx,
-		http.MethodPatch,
-		&url.URL{Path: routeConfigPath},
-		route,
-		nil,
-	)
+	return cm.patchRoutes(ctx, routes)
 }
 
 // getRoutes returns an slice of routes configured on the caddy server
-func (cm *Manager) getRoutes(ctx context.Context) (caddyhttp.RouteList, error) {
-	currentRoutes := caddyhttp.RouteList{}
+func (cm *Manager) getRoutes(ctx context.Context) ([]route, error) {
+	currentRoutes := []route{}
 	routesConfigPath := fmt.Sprintf(
 		"config/apps/http/servers/%s/routes",
 		guvnorServerName,
@@ -345,14 +331,14 @@ func (cm *Manager) getRoutes(ctx context.Context) (caddyhttp.RouteList, error) {
 }
 
 // prependRoute adds a new route to the start of the route array in the server
-func (cm *Manager) prependRoute(ctx context.Context, route *caddyhttp.Route) error {
+func (cm *Manager) patchRoutes(ctx context.Context, route []route) error {
 	prependRoutePath := fmt.Sprintf(
-		"config/apps/http/servers/%s/routes/0",
+		"config/apps/http/servers/%s/routes",
 		guvnorServerName,
 	)
 	return cm.doRequest(
 		ctx,
-		http.MethodPut,
+		http.MethodPatch,
 		&url.URL{Path: prependRoutePath},
 		route,
 		nil,
