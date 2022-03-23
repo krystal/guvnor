@@ -67,6 +67,12 @@ func (h *handlers) UnmarshalJSON(dataBytes []byte) error {
 				return err
 			}
 			out = append(out, value)
+		case "static_response":
+			value := staticResponseHandler{}
+			if err := json.Unmarshal(rawHandler, &value); err != nil {
+				return err
+			}
+			out = append(out, value)
 		default:
 			return fmt.Errorf(
 				"unknown handler type '%s'", handlerIdentity.Handler,
@@ -92,4 +98,13 @@ type upstream struct {
 
 func (rph reverseProxyHandler) HandlerName() string {
 	return "reverse_proxy"
+}
+
+type staticResponseHandler struct {
+	Body       string `json:"body,omitempty"`
+	StatusCode string `json:"status_code,omitempty"`
+}
+
+func (rph staticResponseHandler) HandlerName() string {
+	return "static_response"
 }
