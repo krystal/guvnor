@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"net/http"
 	"net/url"
@@ -25,6 +26,7 @@ import (
 	"github.com/krystal/guvnor/ready"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 const (
@@ -59,12 +61,18 @@ type Manager struct {
 	ContainerLabels map[string]string
 }
 
+func hashConfig(cfg *caddy.Config) string {
+	hasher := fnv.New32()
+	fmt.Fprintf(hasher, "%#v", cfg)
+	return rand.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
+}
+
 func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
-	changesMade := false
 	config, err := cm.getConfig(ctx)
 	if err != nil {
 		return err
 	}
+	initialHash := hashConfig(config)
 
 	httpConfig := &caddyhttp.App{}
 	currentHTTPConfigRaw, ok := config.AppsRaw["http"]
@@ -76,32 +84,29 @@ func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
 
 	if httpConfig.HTTPPort != cm.Config.Ports.HTTP {
 		httpConfig.HTTPPort = cm.Config.Ports.HTTP
-		changesMade = true
 	}
 
 	if httpConfig.HTTPSPort != cm.Config.Ports.HTTPS {
 		httpConfig.HTTPSPort = cm.Config.Ports.HTTPS
-		changesMade = true
 	}
 
 	if httpConfig.Servers == nil {
 		httpConfig.Servers = map[string]*caddyhttp.Server{}
-		changesMade = true
 	}
 
 	serverConfig := httpConfig.Servers[guvnorServerName]
 	if serverConfig == nil {
 		serverConfig = &caddyhttp.Server{}
 		httpConfig.Servers[guvnorServerName] = serverConfig
-		changesMade = true
 	}
 
 	listenAddr := ":" + strconv.Itoa(cm.Config.Ports.HTTPS)
 	if len(serverConfig.Listen) != 1 || serverConfig.Listen[0] != listenAddr {
 		serverConfig.Listen = []string{listenAddr}
-		changesMade = true
 	}
 
+	// TODO: Be a bit smarter and create/update the default route
+	// Add the default route if there are currently no routes
 	if len(serverConfig.Routes) == 0 {
 		defaultHandler := map[string]interface{}{
 			"handler":     "static_response",
@@ -131,7 +136,9 @@ func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
 	}
 	config.AppsRaw["http"] = modifiedHTTPConfigRaw
 
-	if changesMade {
+	finalHash := hashConfig(config)
+	// Compare hash of confeeg ?
+	if initialHash != finalHash {
 		err = cm.doRequest(
 			ctx, http.MethodPost, &url.URL{Path: "config/"}, config, nil,
 		)
