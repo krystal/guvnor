@@ -59,53 +59,6 @@ type Manager struct {
 	ContainerLabels map[string]string
 }
 
-func (cm *Manager) defaultConfigurationJSON() ([]byte, error) {
-	defaultHandler := map[string]interface{}{
-		"handler":     "static_response",
-		"body":        "Welcome to Guvnor. We found no backend matching your request.",
-		"status_code": "404",
-	}
-	defaultHandlerBytes, err := json.Marshal(defaultHandler)
-	if err != nil {
-		return nil, err
-	}
-
-	httpConfig := &caddyhttp.App{
-		HTTPPort:  cm.Config.Ports.HTTP,
-		HTTPSPort: cm.Config.Ports.HTTPS,
-		Servers: map[string]*caddyhttp.Server{
-			guvnorServerName: {
-				Listen: []string{":" + strconv.Itoa(cm.Config.Ports.HTTPS)},
-				Routes: caddyhttp.RouteList{
-					{
-						HandlersRaw: []json.RawMessage{
-							json.RawMessage(defaultHandlerBytes),
-						},
-					},
-				},
-			},
-		},
-	}
-	httpConfigBytes, err := json.Marshal(httpConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg := caddy.Config{
-		Admin: &caddy.AdminConfig{
-			// We can rely on the default values here for now.
-		},
-		Logging: &caddy.Logging{
-			// We can rely on the default values here for now.
-		},
-		AppsRaw: caddy.ModuleMap{
-			"http": json.RawMessage(httpConfigBytes),
-		},
-	}
-
-	return json.Marshal(cfg)
-}
-
 func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
 	changesMade := false
 	config, err := cm.getConfig(ctx)
@@ -147,6 +100,26 @@ func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
 	if len(serverConfig.Listen) != 1 || serverConfig.Listen[0] != listenAddr {
 		serverConfig.Listen = []string{listenAddr}
 		changesMade = true
+	}
+
+	if len(serverConfig.Routes) == 0 {
+		defaultHandler := map[string]interface{}{
+			"handler":     "static_response",
+			"body":        "Welcome to Guvnor. We found no backend matching your request.",
+			"status_code": "404",
+		}
+		defaultHandlerRaw, err := json.Marshal(defaultHandler)
+		if err != nil {
+			return err
+		}
+
+		serverConfig.Routes = append(serverConfig.Routes,
+			caddyhttp.Route{
+				HandlersRaw: []json.RawMessage{
+					json.RawMessage(defaultHandlerRaw),
+				},
+			},
+		)
 	}
 
 	// TODO: Clean up servers we don't recognise ??
