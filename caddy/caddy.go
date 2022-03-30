@@ -74,7 +74,7 @@ func (cm *Manager) defaultConfiguration() ([]byte, error) {
 		HTTPSPort: cm.Config.Ports.HTTPS,
 		Servers: map[string]*caddyhttp.Server{
 			guvnorServerName: {
-				Listen: []string{":80", ":443"},
+				Listen: []string{":443"},
 				Routes: caddyhttp.RouteList{
 					caddyhttp.Route{
 						HandlersRaw: []json.RawMessage{
