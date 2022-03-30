@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -58,7 +59,7 @@ type Manager struct {
 	ContainerLabels map[string]string
 }
 
-func (cm *Manager) defaultConfiguration() ([]byte, error) {
+func (cm *Manager) defaultConfigurationJSON() ([]byte, error) {
 	defaultHandler := map[string]interface{}{
 		"handler":     "static_response",
 		"body":        "Welcome to Guvnor. We found no backend matching your request.",
@@ -74,9 +75,9 @@ func (cm *Manager) defaultConfiguration() ([]byte, error) {
 		HTTPSPort: cm.Config.Ports.HTTPS,
 		Servers: map[string]*caddyhttp.Server{
 			guvnorServerName: {
-				Listen: []string{":443"},
+				Listen: []string{":" + strconv.Itoa(cm.Config.Ports.HTTPS)},
 				Routes: caddyhttp.RouteList{
-					caddyhttp.Route{
+					{
 						HandlersRaw: []json.RawMessage{
 							json.RawMessage(defaultHandlerBytes),
 						},
@@ -105,6 +106,70 @@ func (cm *Manager) defaultConfiguration() ([]byte, error) {
 	return json.Marshal(cfg)
 }
 
+func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
+	changesMade := false
+	config, err := cm.getConfig(ctx)
+	if err != nil {
+		return err
+	}
+
+	httpConfig := &caddyhttp.App{}
+	currentHTTPConfigRaw, ok := config.AppsRaw["http"]
+	if ok {
+		if err := json.Unmarshal(currentHTTPConfigRaw, httpConfig); err != nil {
+			return err
+		}
+	}
+
+	if httpConfig.HTTPPort != cm.Config.Ports.HTTP {
+		httpConfig.HTTPPort = cm.Config.Ports.HTTP
+		changesMade = true
+	}
+
+	if httpConfig.HTTPSPort != cm.Config.Ports.HTTPS {
+		httpConfig.HTTPSPort = cm.Config.Ports.HTTPS
+		changesMade = true
+	}
+
+	if httpConfig.Servers == nil {
+		httpConfig.Servers = map[string]*caddyhttp.Server{}
+		changesMade = true
+	}
+
+	serverConfig := httpConfig.Servers[guvnorServerName]
+	if serverConfig == nil {
+		serverConfig = &caddyhttp.Server{}
+		httpConfig.Servers[guvnorServerName] = serverConfig
+		changesMade = true
+	}
+
+	listenAddr := ":" + strconv.Itoa(cm.Config.Ports.HTTPS)
+	if len(serverConfig.Listen) != 1 || serverConfig.Listen[0] != listenAddr {
+		serverConfig.Listen = []string{listenAddr}
+		changesMade = true
+	}
+
+	// TODO: Clean up servers we don't recognise ??
+
+	// Persist the HTTP config to the main config
+	modifiedHTTPConfigRaw, err := json.Marshal(httpConfig)
+	if err != nil {
+		return err
+	}
+	config.AppsRaw["http"] = modifiedHTTPConfigRaw
+
+	if changesMade {
+		err = cm.doRequest(
+			ctx, http.MethodPost, &url.URL{Path: "config/"}, config, nil,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Init ensures a caddy container is running and configured to accept
 // config at the expected path.
 func (cm *Manager) Init(ctx context.Context) error {
@@ -125,9 +190,9 @@ func (cm *Manager) Init(ctx context.Context) error {
 
 	// If there's only one caddy container, there's nothing for us to do
 	if len(res) == 1 {
-		cm.Log.Debug("caddy container already running, no action required")
-		// TODO: We should check the health and global config options of caddy
-		return nil
+		cm.Log.Debug("caddy container already running")
+
+		return cm.reconcileCaddyConfig(ctx)
 	}
 
 	cm.Log.Debug("no caddy container detected, creating one")
@@ -209,12 +274,7 @@ func (cm *Manager) Init(ctx context.Context) error {
 		return err
 	}
 
-	defaultConfig, err := cm.defaultConfiguration()
-	if err != nil {
-		return err
-	}
-	err = cm.doRequest(ctx, http.MethodPost, &url.URL{Path: "config/"}, defaultConfig, nil)
-	if err != nil {
+	if err := cm.reconcileCaddyConfig(ctx); err != nil {
 		return err
 	}
 
@@ -343,6 +403,22 @@ func (cm *Manager) patchRoutes(ctx context.Context, route []route) error {
 		route,
 		nil,
 	)
+}
+
+func (cm *Manager) getConfig(ctx context.Context) (*caddy.Config, error) {
+	cfg := &caddy.Config{}
+	err := cm.doRequest(
+		ctx,
+		http.MethodGet,
+		&url.URL{Path: "config/"},
+		nil,
+		cfg,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
 func (cm *Manager) doRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
