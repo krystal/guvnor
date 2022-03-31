@@ -57,7 +57,8 @@ type Manager struct {
 }
 
 func (cm *Manager) calculateConfigChanges(config *caddy.Config) (bool, error) {
-	// TODO: Swap this out for some hashing or string comparison
+	// TODO: Swap this out for some hashing or string comparison.
+	//
 	// I originally tried this with a JSONified version of the config, but
 	// unfortunately this did not work as the keys changed position. This could
 	// be worked around but in the interest of time, I went with a bool.
