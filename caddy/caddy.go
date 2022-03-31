@@ -1,15 +1,13 @@
 package caddy
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -58,51 +56,107 @@ type Manager struct {
 	ContainerLabels map[string]string
 }
 
-func (cm *Manager) defaultConfiguration() ([]byte, error) {
-	defaultHandler := map[string]interface{}{
-		"handler":     "static_response",
-		"body":        "Welcome to Guvnor. We found no backend matching your request.",
-		"status_code": "404",
-	}
-	defaultHandlerBytes, err := json.Marshal(defaultHandler)
-	if err != nil {
-		return nil, err
+func (cm *Manager) calculateConfigChanges(config *caddy.Config) (bool, error) {
+	// TODO: Swap this out for some hashing or string comparison.
+	//
+	// I originally tried this with a JSONified version of the config, but
+	// unfortunately this did not work as the keys changed position. This could
+	// be worked around but in the interest of time, I went with a bool.
+	hasChanged := false
+
+	if config.AppsRaw == nil {
+		config.AppsRaw = caddy.ModuleMap{}
+		hasChanged = true
 	}
 
-	httpConfig := &caddyhttp.App{
-		HTTPPort:  cm.Config.Ports.HTTP,
-		HTTPSPort: cm.Config.Ports.HTTPS,
-		Servers: map[string]*caddyhttp.Server{
-			guvnorServerName: {
-				Listen: []string{":443"},
-				Routes: caddyhttp.RouteList{
-					caddyhttp.Route{
-						HandlersRaw: []json.RawMessage{
-							json.RawMessage(defaultHandlerBytes),
-						},
-					},
+	httpConfig := &caddyhttp.App{}
+	currentHTTPConfigRaw, ok := config.AppsRaw["http"]
+	if ok {
+		if err := json.Unmarshal(currentHTTPConfigRaw, httpConfig); err != nil {
+			return hasChanged, err
+		}
+	}
+
+	if httpConfig.HTTPPort != cm.Config.Ports.HTTP {
+		httpConfig.HTTPPort = cm.Config.Ports.HTTP
+		hasChanged = true
+	}
+
+	if httpConfig.HTTPSPort != cm.Config.Ports.HTTPS {
+		httpConfig.HTTPSPort = cm.Config.Ports.HTTPS
+		hasChanged = true
+	}
+
+	if httpConfig.Servers == nil {
+		httpConfig.Servers = map[string]*caddyhttp.Server{}
+		hasChanged = true
+	}
+
+	serverConfig := httpConfig.Servers[guvnorServerName]
+	if serverConfig == nil {
+		serverConfig = &caddyhttp.Server{}
+		httpConfig.Servers[guvnorServerName] = serverConfig
+		hasChanged = true
+	}
+
+	listenAddr := ":" + strconv.Itoa(cm.Config.Ports.HTTPS)
+	if len(serverConfig.Listen) != 1 || serverConfig.Listen[0] != listenAddr {
+		serverConfig.Listen = []string{listenAddr}
+		hasChanged = true
+	}
+
+	// TODO: Be a bit smarter and create/update the default route
+	// Add the default route if there are currently no routes
+	if len(serverConfig.Routes) == 0 {
+		defaultHandler := map[string]interface{}{
+			"handler":     "static_response",
+			"body":        "Welcome to Guvnor. We found no backend matching your request.",
+			"status_code": "404",
+		}
+		defaultHandlerRaw, err := json.Marshal(defaultHandler)
+		if err != nil {
+			return hasChanged, err
+		}
+
+		serverConfig.Routes = append(serverConfig.Routes,
+			caddyhttp.Route{
+				HandlersRaw: []json.RawMessage{
+					json.RawMessage(defaultHandlerRaw),
 				},
 			},
-		},
+		)
+		hasChanged = true
 	}
-	httpConfigBytes, err := json.Marshal(httpConfig)
+
+	// TODO: Clean up servers we don't recognise ??
+
+	// Persist the HTTP config to the main config
+	modifiedHTTPConfigRaw, err := json.Marshal(httpConfig)
 	if err != nil {
-		return nil, err
+		return hasChanged, err
+	}
+	config.AppsRaw["http"] = modifiedHTTPConfigRaw
+
+	return hasChanged, err
+}
+
+func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
+	config, err := cm.getConfig(ctx)
+	if err != nil {
+		return err
 	}
 
-	cfg := caddy.Config{
-		Admin: &caddy.AdminConfig{
-			// We can rely on the default values here for now.
-		},
-		Logging: &caddy.Logging{
-			// We can rely on the default values here for now.
-		},
-		AppsRaw: caddy.ModuleMap{
-			"http": json.RawMessage(httpConfigBytes),
-		},
+	hasChanged, err := cm.calculateConfigChanges(config)
+	if err != nil {
+		return err
 	}
 
-	return json.Marshal(cfg)
+	if hasChanged {
+		cm.Log.Info("reconciliation found changes, updating caddy config")
+		return cm.postConfig(ctx, config)
+	}
+
+	return nil
 }
 
 // Init ensures a caddy container is running and configured to accept
@@ -125,9 +179,9 @@ func (cm *Manager) Init(ctx context.Context) error {
 
 	// If there's only one caddy container, there's nothing for us to do
 	if len(res) == 1 {
-		cm.Log.Debug("caddy container already running, no action required")
-		// TODO: We should check the health and global config options of caddy
-		return nil
+		cm.Log.Debug("caddy container already running")
+
+		return cm.reconcileCaddyConfig(ctx)
 	}
 
 	cm.Log.Debug("no caddy container detected, creating one")
@@ -209,12 +263,7 @@ func (cm *Manager) Init(ctx context.Context) error {
 		return err
 	}
 
-	defaultConfig, err := cm.defaultConfiguration()
-	if err != nil {
-		return err
-	}
-	err = cm.doRequest(ctx, http.MethodPost, &url.URL{Path: "config/"}, defaultConfig, nil)
-	if err != nil {
+	if err := cm.reconcileCaddyConfig(ctx); err != nil {
 		return err
 	}
 
@@ -313,95 +362,4 @@ func (cm *Manager) ConfigureBackend(
 	sortRoutes(routes)
 
 	return cm.patchRoutes(ctx, routes)
-}
-
-// getRoutes returns an slice of routes configured on the caddy server
-func (cm *Manager) getRoutes(ctx context.Context) ([]route, error) {
-	currentRoutes := []route{}
-	routesConfigPath := fmt.Sprintf(
-		"config/apps/http/servers/%s/routes",
-		guvnorServerName,
-	)
-	err := cm.doRequest(ctx, http.MethodGet, &url.URL{Path: routesConfigPath}, nil, &currentRoutes)
-	if err != nil {
-		return nil, err
-	}
-
-	return currentRoutes, nil
-}
-
-// prependRoute adds a new route to the start of the route array in the server
-func (cm *Manager) patchRoutes(ctx context.Context, route []route) error {
-	prependRoutePath := fmt.Sprintf(
-		"config/apps/http/servers/%s/routes",
-		guvnorServerName,
-	)
-	return cm.doRequest(
-		ctx,
-		http.MethodPatch,
-		&url.URL{Path: prependRoutePath},
-		route,
-		nil,
-	)
-}
-
-func (cm *Manager) doRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
-	var bodyToSend io.Reader
-	if body != nil {
-		if v, ok := body.(string); ok {
-			// Send string directly
-			bodyToSend = bytes.NewBufferString(v)
-		} else if v, ok := body.([]byte); ok {
-			bodyToSend = bytes.NewBuffer(v)
-		} else {
-			// If not a string, JSONify it and send it
-			data, err := json.Marshal(body)
-			if err != nil {
-				return fmt.Errorf("marshalling body: %w", err)
-			}
-			bodyToSend = bytes.NewBuffer(data)
-		}
-	}
-
-	// TODO: Pull this into the config for Manager
-	rootPath, err := url.Parse("http://localhost:2019")
-	if err != nil {
-		return err
-	}
-
-	fullPath := rootPath.ResolveReference(path).String()
-
-	req, err := http.NewRequestWithContext(ctx, method, fullPath, bodyToSend)
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-
-	req.Header.Add("Content-Type", "application/json")
-
-	cm.Log.Debug("making request to caddy",
-		zap.String("url", req.URL.String()),
-		zap.String("method", req.Method),
-	)
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("executing request: %w", err)
-	}
-	defer res.Body.Close()
-
-	// TODO: Check status codes
-	data, err := io.ReadAll(res.Body)
-	if err != nil {
-		return fmt.Errorf("reading response body: %w", err)
-	}
-	cm.Log.Debug("response from caddy",
-		zap.String("body", string(data)),
-		zap.Int("status", res.StatusCode),
-	)
-	if out != nil {
-		if err := json.Unmarshal(data, out); err != nil {
-			return fmt.Errorf("unmarshalling response: %w", err)
-		}
-	}
-
-	return nil
 }
