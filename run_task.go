@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -13,82 +12,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stdcopy"
 	"go.uber.org/zap"
-	"golang.org/x/term"
 )
-
-// Useful references on interactive tasks:
-// - https://github.com/docker/cli/blob/master/cli/command/container/run.go
-// - https://github.com/docker/cli/blob/master/cli/command/container/hijack.go
-
-type hijackStreamer struct {
-	log    *zap.Logger
-	stdin  io.ReadCloser
-	stdout io.Writer
-
-	hijacked types.HijackedResponse
-}
-
-// setRaw puts the terminal into raw mode. This enables more control, and
-// prevents an "echoing" style effect where the user sees their own input twice
-// when executing shell applications like `bash`.
-//
-// It returns a restore function that MUST be called once streaming from stdin
-// has ended, or the user's terminal will be left in a borked state.
-func (h *hijackStreamer) setRaw() (func(), error) {
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		return nil, err
-	}
-
-	restoreTerm := func() {
-		if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
-			h.log.Error("failed to restore terminal", zap.Error(err))
-		}
-	}
-
-	return restoreTerm, nil
-}
-
-// stream connects the hijacked response to the specified stdin/stdout and
-// blocks until the connection goes away or the context is cancelled.
-func (h *hijackStreamer) stream(ctx context.Context) error {
-	restoreTerm, err := h.setRaw()
-	if err != nil {
-		return err
-	}
-	defer restoreTerm()
-
-	stdinChan := make(chan error)
-	go func() {
-		_, err := io.Copy(h.hijacked.Conn, h.stdin)
-		if err != nil {
-			err = fmt.Errorf("streaming input: %w", err)
-		}
-		stdinChan <- err
-	}()
-
-	stdoutChan := make(chan error)
-	go func() {
-		_, err := io.Copy(h.stdout, h.hijacked.Reader)
-		if err != nil {
-			err = fmt.Errorf("streaming output: %w", err)
-		}
-
-		if err := h.hijacked.CloseWrite(); err != nil {
-			h.log.Error("failed to send EOF", zap.Error(err))
-		}
-		stdoutChan <- err
-	}()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-stdinChan:
-		return err
-	case err := <-stdoutChan:
-		return err
-	}
-}
 
 type RunTaskArgs struct {
 	ServiceName string
@@ -209,6 +133,13 @@ func (e *Engine) runTask(ctx context.Context, task *ServiceTaskConfig, svc *Serv
 	err = e.docker.ContainerStart(ctx, createRes.ID, types.ContainerStartOptions{})
 	if err != nil {
 		return err
+	}
+
+	// Set initial TTY size
+	if task.Interactive {
+		if err := manageTTYSize(ctx, e.log, createRes.ID, e.docker); err != nil {
+			e.log.Error("failed to manage TTY size", zap.Error(err))
+		}
 	}
 
 	waitChan, errChan := e.docker.ContainerWait(
