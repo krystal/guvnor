@@ -88,7 +88,8 @@ func TestClient_doRequest(t *testing.T) {
 					}
 
 					if tt.responseBody != nil {
-						w.Write(tt.responseBody)
+						_, err := w.Write(tt.responseBody)
+						assert.NoError(t, err)
 					}
 
 					assert.Equal(t, tt.path.Path, r.URL.Path)
