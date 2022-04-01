@@ -13,14 +13,31 @@ import (
 	"go.uber.org/zap"
 )
 
+// Client wraps access to the Caddy Admin API.
+type Client struct {
+	basePath string
+	log      *zap.Logger
+}
+
+func NewClient(log *zap.Logger) *Client {
+	if log == nil {
+		log = zap.NewNop()
+	}
+
+	return &Client{
+		basePath: "http://localhost:2019",
+		log:      log,
+	}
+}
+
 // getRoutes returns an slice of routes configured on the caddy server
-func (cm *Manager) getRoutes(ctx context.Context) ([]route, error) {
+func (c *Client) getRoutes(ctx context.Context) ([]route, error) {
 	currentRoutes := []route{}
 	routesConfigPath := fmt.Sprintf(
 		"config/apps/http/servers/%s/routes",
 		guvnorServerName,
 	)
-	err := cm.doRequest(ctx, http.MethodGet, &url.URL{Path: routesConfigPath}, nil, &currentRoutes)
+	err := c.doRequest(ctx, http.MethodGet, &url.URL{Path: routesConfigPath}, nil, &currentRoutes)
 	if err != nil {
 		return nil, err
 	}
@@ -29,12 +46,12 @@ func (cm *Manager) getRoutes(ctx context.Context) ([]route, error) {
 }
 
 // prependRoute adds a new route to the start of the route array in the server
-func (cm *Manager) patchRoutes(ctx context.Context, route []route) error {
+func (c *Client) patchRoutes(ctx context.Context, route []route) error {
 	prependRoutePath := fmt.Sprintf(
 		"config/apps/http/servers/%s/routes",
 		guvnorServerName,
 	)
-	return cm.doRequest(
+	return c.doRequest(
 		ctx,
 		http.MethodPatch,
 		&url.URL{Path: prependRoutePath},
@@ -43,9 +60,9 @@ func (cm *Manager) patchRoutes(ctx context.Context, route []route) error {
 	)
 }
 
-func (cm *Manager) getConfig(ctx context.Context) (*caddy.Config, error) {
+func (c *Client) getConfig(ctx context.Context) (*caddy.Config, error) {
 	cfg := &caddy.Config{}
-	err := cm.doRequest(
+	err := c.doRequest(
 		ctx,
 		http.MethodGet,
 		&url.URL{Path: "config/"},
@@ -59,8 +76,8 @@ func (cm *Manager) getConfig(ctx context.Context) (*caddy.Config, error) {
 	return cfg, nil
 }
 
-func (cm *Manager) postConfig(ctx context.Context, cfg *caddy.Config) error {
-	err := cm.doRequest(
+func (c *Client) postConfig(ctx context.Context, cfg *caddy.Config) error {
+	err := c.doRequest(
 		ctx, http.MethodPost, &url.URL{Path: "config/"}, cfg, nil,
 	)
 	if err != nil {
@@ -70,7 +87,7 @@ func (cm *Manager) postConfig(ctx context.Context, cfg *caddy.Config) error {
 	return nil
 }
 
-func (cm *Manager) doRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
+func (c *Client) doRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
 	var bodyToSend io.Reader
 	if body != nil {
 		if v, ok := body.(string); ok {
@@ -89,7 +106,7 @@ func (cm *Manager) doRequest(ctx context.Context, method string, path *url.URL, 
 	}
 
 	// TODO: Pull this into the config for Manager
-	rootPath, err := url.Parse("http://localhost:2019")
+	rootPath, err := url.Parse(c.basePath)
 	if err != nil {
 		return err
 	}
@@ -103,7 +120,7 @@ func (cm *Manager) doRequest(ctx context.Context, method string, path *url.URL, 
 
 	req.Header.Add("Content-Type", "application/json")
 
-	cm.Log.Debug("making request to caddy",
+	c.log.Debug("making request to caddy",
 		zap.String("url", req.URL.String()),
 		zap.String("method", req.Method),
 	)
@@ -118,7 +135,7 @@ func (cm *Manager) doRequest(ctx context.Context, method string, path *url.URL, 
 	if err != nil {
 		return fmt.Errorf("reading response body: %w", err)
 	}
-	cm.Log.Debug("response from caddy",
+	c.log.Debug("response from caddy",
 		zap.String("body", string(data)),
 		zap.Int("status", res.StatusCode),
 	)
