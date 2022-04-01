@@ -14,7 +14,7 @@ import (
 )
 
 func TestClient_doRequest(t *testing.T) {
-	type reqBody struct {
+	type testObj struct {
 		Field string `json:"field"`
 	}
 
@@ -36,11 +36,28 @@ func TestClient_doRequest(t *testing.T) {
 		{
 			name:   "successful JSON post",
 			method: http.MethodPost,
-			path:   &url.URL{Path: "succ_json_post/"},
-			body: &reqBody{
+			path:   &url.URL{Path: "/succ_json_post/"},
+			body: &testObj{
 				Field: "dog",
 			},
+			out: &testObj{},
+
 			wantRequestBody: []byte(`{"field":"dog"}`),
+			responseBody:    []byte(`{"field":"fish"}`),
+			wantOut: &testObj{
+				Field: "fish",
+			},
+		},
+		{
+			name:   "successful JSON get",
+			method: http.MethodGet,
+			out:    &testObj{},
+
+			path:         &url.URL{Path: "/succ_json_gett/"},
+			responseBody: []byte(`{"field":"dog"}`),
+			wantOut: &testObj{
+				Field: "dog",
+			},
 		},
 	}
 
@@ -50,7 +67,12 @@ func TestClient_doRequest(t *testing.T) {
 				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					body, err := io.ReadAll(r.Body)
 					require.NoError(t, err)
-					assert.Equal(t, tt.wantRequestBody, body)
+
+					if tt.wantRequestBody != nil {
+						assert.Equal(t, tt.wantRequestBody, body)
+					} else {
+						assert.Empty(t, body)
+					}
 
 					assert.Equal(
 						t,
@@ -68,6 +90,8 @@ func TestClient_doRequest(t *testing.T) {
 					if tt.responseBody != nil {
 						w.Write(tt.responseBody)
 					}
+
+					assert.Equal(t, tt.path.Path, r.URL.Path)
 				}),
 			)
 			t.Cleanup(srv.Close)
