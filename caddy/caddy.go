@@ -18,7 +18,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
+	docker "github.com/docker/docker/client"
 	"github.com/krystal/guvnor/ready"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -50,7 +50,8 @@ type PortsConfig struct {
 }
 
 type Manager struct {
-	Docker          *client.Client
+	AdminAPI        *Client
+	Docker          *docker.Client
 	Log             *zap.Logger
 	Config          Config
 	ContainerLabels map[string]string
@@ -141,7 +142,7 @@ func (cm *Manager) calculateConfigChanges(config *caddy.Config) (bool, error) {
 }
 
 func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
-	config, err := cm.getConfig(ctx)
+	config, err := cm.AdminAPI.getConfig(ctx)
 	if err != nil {
 		return err
 	}
@@ -153,7 +154,7 @@ func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
 
 	if hasChanged {
 		cm.Log.Info("reconciliation found changes, updating caddy config")
-		return cm.postConfig(ctx, config)
+		return cm.AdminAPI.postConfig(ctx, config)
 	}
 
 	return nil
@@ -340,7 +341,7 @@ func (cm *Manager) ConfigureBackend(
 		zap.Strings("ports", ports),
 	)
 	// Fetch current config
-	routes, err := cm.getRoutes(ctx)
+	routes, err := cm.AdminAPI.getRoutes(ctx)
 	if err != nil {
 		return err
 	}
@@ -361,5 +362,5 @@ func (cm *Manager) ConfigureBackend(
 
 	sortRoutes(routes)
 
-	return cm.patchRoutes(ctx, routes)
+	return cm.AdminAPI.patchRoutes(ctx, routes)
 }

@@ -45,6 +45,7 @@ func NewEngine(log *zap.Logger, docker *client.Client, cfg EngineConfig, validat
 			ContainerLabels: map[string]string{
 				managedLabel: "1",
 			},
+			AdminAPI: caddy.NewClient(log.Named("caddy").Named("client")),
 		},
 		validate: validate,
 		state: &state.FileBasedStore{
