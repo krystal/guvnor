@@ -13,25 +13,25 @@ import (
 	"go.uber.org/zap"
 )
 
-// Client wraps access to the Caddy Admin API.
-type Client struct {
+// HTTPAdminAPIClient wraps access to the Caddy Admin API.
+type HTTPAdminAPIClient struct {
 	basePath string
 	log      *zap.Logger
 }
 
-func NewClient(log *zap.Logger) *Client {
+func NewHTTPAdminAPIClient(log *zap.Logger) *HTTPAdminAPIClient {
 	if log == nil {
 		log = zap.NewNop()
 	}
 
-	return &Client{
+	return &HTTPAdminAPIClient{
 		basePath: "http://localhost:2019",
 		log:      log,
 	}
 }
 
 // getRoutes returns an slice of routes configured on the caddy server
-func (c *Client) getRoutes(ctx context.Context) ([]route, error) {
+func (c *HTTPAdminAPIClient) getRoutes(ctx context.Context) ([]route, error) {
 	currentRoutes := []route{}
 	routesConfigPath := fmt.Sprintf(
 		"config/apps/http/servers/%s/routes",
@@ -45,8 +45,8 @@ func (c *Client) getRoutes(ctx context.Context) ([]route, error) {
 	return currentRoutes, nil
 }
 
-// patchRoutes updates the configured routes in Caddy with the provided set
-func (c *Client) patchRoutes(ctx context.Context, route []route) error {
+// updateRoutes updates the configured routes in Caddy with the provided set
+func (c *HTTPAdminAPIClient) updateRoutes(ctx context.Context, routes []route) error {
 	prependRoutePath := fmt.Sprintf(
 		"config/apps/http/servers/%s/routes",
 		guvnorServerName,
@@ -55,12 +55,12 @@ func (c *Client) patchRoutes(ctx context.Context, route []route) error {
 		ctx,
 		http.MethodPatch,
 		&url.URL{Path: prependRoutePath},
-		route,
+		routes,
 		nil,
 	)
 }
 
-func (c *Client) getConfig(ctx context.Context) (*caddy.Config, error) {
+func (c *HTTPAdminAPIClient) getConfig(ctx context.Context) (*caddy.Config, error) {
 	cfg := &caddy.Config{}
 	err := c.doRequest(
 		ctx,
@@ -76,7 +76,7 @@ func (c *Client) getConfig(ctx context.Context) (*caddy.Config, error) {
 	return cfg, nil
 }
 
-func (c *Client) postConfig(ctx context.Context, cfg *caddy.Config) error {
+func (c *HTTPAdminAPIClient) updateConfig(ctx context.Context, cfg *caddy.Config) error {
 	err := c.doRequest(
 		ctx, http.MethodPost, &url.URL{Path: "config/"}, cfg, nil,
 	)
@@ -87,7 +87,7 @@ func (c *Client) postConfig(ctx context.Context, cfg *caddy.Config) error {
 	return nil
 }
 
-func (c *Client) doRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
+func (c *HTTPAdminAPIClient) doRequest(ctx context.Context, method string, path *url.URL, body interface{}, out interface{}) error {
 	var bodyToSend io.Reader
 	if body != nil {
 		if v, ok := body.(string); ok {

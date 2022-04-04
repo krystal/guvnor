@@ -53,11 +53,11 @@ type PortsConfig struct {
 	HTTPS int `yaml:"https"`
 }
 
-type adminAPI interface {
+type caddyConfigurator interface {
 	getRoutes(ctx context.Context) ([]route, error)
-	patchRoutes(ctx context.Context, routes []route) error
+	updateRoutes(ctx context.Context, routes []route) error
 	getConfig(ctx context.Context) (*caddy.Config, error)
-	postConfig(ctx context.Context, cfg *caddy.Config) error
+	updateConfig(ctx context.Context, cfg *caddy.Config) error
 }
 
 // Manager creates and manages a Caddy container. It provides a Init() method
@@ -68,7 +68,7 @@ type Manager struct {
 
 	// AdminAPI is used by manager for making changes to a caddy configuration
 	// via its admin API.
-	AdminAPI adminAPI
+	AdminAPI caddyConfigurator
 	// Docker is the implementation of Docker that the manager should use to
 	// create and query containers.
 	Docker docker.APIClient
@@ -176,7 +176,7 @@ func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
 
 	if hasChanged {
 		cm.Log.Info("reconciliation found changes, updating caddy config")
-		return cm.AdminAPI.postConfig(ctx, config)
+		return cm.AdminAPI.updateConfig(ctx, config)
 	}
 
 	return nil
@@ -384,5 +384,5 @@ func (cm *Manager) ConfigureBackend(
 
 	sortRoutes(routes)
 
-	return cm.AdminAPI.patchRoutes(ctx, routes)
+	return cm.AdminAPI.updateRoutes(ctx, routes)
 }

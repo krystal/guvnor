@@ -6,10 +6,10 @@ import (
 	"errors"
 	"testing"
 
+	gomock "github.com/golang/mock/gomock"
 	"github.com/jimeh/go-golden"
 	"github.com/krystal/guvnor"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func Test_newCleanupCmd(t *testing.T) {
@@ -47,24 +47,24 @@ func Test_newCleanupCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mEngine := &mockEngine{}
+			ctrl := gomock.NewController(t)
+			mEngine := NewMockengine(ctrl)
+
+			ctx := context.Background()
 			provider := func() (engine, *guvnor.EngineConfig, error) {
 				return mEngine, nil, nil
 			}
 
 			if tt.wantArgs != nil {
 				mEngine.
-					On(
-						"Cleanup",
-						mock.MatchedBy(func(_ context.Context) bool {
-							return true
-						}),
-						*tt.wantArgs).
+					EXPECT().
+					Cleanup(ctx, *tt.wantArgs).
 					Return(tt.engineErr)
 				mEngine.
-					On("GetDefaultService").
+					EXPECT().
+					GetDefaultService().
 					Return(&guvnor.GetDefaultServiceResult{Name: "boris"}, nil).
-					Maybe()
+					AnyTimes()
 			}
 
 			cmd := newCleanupCommand(provider)
@@ -74,7 +74,7 @@ func Test_newCleanupCmd(t *testing.T) {
 			cmd.SetErr(stderr)
 			cmd.SetArgs(tt.args)
 
-			err := cmd.Execute()
+			err := cmd.ExecuteContext(ctx)
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
@@ -87,8 +87,6 @@ func Test_newCleanupCmd(t *testing.T) {
 			}
 			assert.Equal(t, golden.GetP(t, "stdout"), stdout.Bytes())
 			assert.Equal(t, golden.GetP(t, "stderr"), stderr.Bytes())
-
-			mEngine.AssertExpectations(t)
 		})
 	}
 }
