@@ -19,14 +19,14 @@ const (
 
 type Engine struct {
 	log      *zap.Logger
-	docker   *client.Client
+	docker   client.APIClient
 	config   EngineConfig
 	caddy    *caddy.Manager
 	state    *state.FileBasedStore
 	validate *validator.Validate
 }
 
-func NewEngine(log *zap.Logger, docker *client.Client, cfg EngineConfig, validate *validator.Validate) *Engine {
+func NewEngine(log *zap.Logger, docker client.APIClient, cfg EngineConfig, validate *validator.Validate) *Engine {
 	if validate == nil {
 		validate = validator.New()
 	}
@@ -45,7 +45,9 @@ func NewEngine(log *zap.Logger, docker *client.Client, cfg EngineConfig, validat
 			ContainerLabels: map[string]string{
 				managedLabel: "1",
 			},
-			AdminAPI: caddy.NewClient(log.Named("caddy").Named("client")),
+			CaddyConfigurator: caddy.NewAdminAPIClient(
+				log.Named("caddy").Named("client"),
+			),
 		},
 		validate: validate,
 		state: &state.FileBasedStore{

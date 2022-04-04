@@ -37,7 +37,7 @@ type Config struct {
 }
 
 type ACMEConfig struct {
-	// CA is the URL of the ACME service.
+	// CA is the URL of the ACME service to request certificates from.
 	CA string `yaml:"ca"`
 	// Email is the address that should be provided to the acme service for
 	// contacting us.
@@ -45,15 +45,37 @@ type ACMEConfig struct {
 }
 
 type PortsConfig struct {
-	HTTP  int `yaml:"http"`
+	// HTTP is the port Caddy should listen on for unencrypted HTTP traffic.
+	// By default this is 80.
+	HTTP int `yaml:"http"`
+	// HTTPS is the port Caddy should listen on for encrypted HTTPS traffic.
+	// By default this is 443.
 	HTTPS int `yaml:"https"`
 }
 
+type caddyConfigurator interface {
+	getRoutes(ctx context.Context) ([]route, error)
+	updateRoutes(ctx context.Context, routes []route) error
+	getConfig(ctx context.Context) (*caddy.Config, error)
+	updateConfig(ctx context.Context, cfg *caddy.Config) error
+}
+
+// Manager creates and manages a Caddy container. It provides a Init() method
+// for creating the container, and reconciling its initial configuration, and
+// methods for reconciling Guvnor services in the caddy configuration.
 type Manager struct {
-	AdminAPI        *Client
-	Docker          *docker.Client
-	Log             *zap.Logger
-	Config          Config
+	Log *zap.Logger
+
+	// CaddyConfigurator is used by manager for making changes to a caddy
+	// configuration
+	CaddyConfigurator caddyConfigurator
+	// Docker is the implementation of Docker that the manager should use to
+	// create and query containers.
+	Docker docker.APIClient
+	// Config controls how the manager behaves.
+	Config Config
+	// ContainerLabels is a map of labels to add to any containers created by
+	// the manager.
 	ContainerLabels map[string]string
 }
 
@@ -142,7 +164,7 @@ func (cm *Manager) calculateConfigChanges(config *caddy.Config) (bool, error) {
 }
 
 func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
-	config, err := cm.AdminAPI.getConfig(ctx)
+	config, err := cm.CaddyConfigurator.getConfig(ctx)
 	if err != nil {
 		return err
 	}
@@ -154,7 +176,7 @@ func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
 
 	if hasChanged {
 		cm.Log.Info("reconciliation found changes, updating caddy config")
-		return cm.AdminAPI.postConfig(ctx, config)
+		return cm.CaddyConfigurator.updateConfig(ctx, config)
 	}
 
 	return nil
@@ -308,6 +330,7 @@ func (cm *Manager) generateRouteforBackend(backendName string, hostnames []strin
 func sortRoutes(routes []route) {
 	pathLength := func(route route) int {
 		if len(route.MatcherSets) == 0 {
+			// Sort the default handler last (it has no matcher sets)
 			return -1
 		}
 		matcher := route.MatcherSets[0]
@@ -325,8 +348,8 @@ func sortRoutes(routes []route) {
 	})
 }
 
-// ConfigureBackend sets up the appropriate routes in Caddy for a
-// specific process/service
+// ConfigureBackend sets up the appropriate routes in Caddy for a specific
+// process/service
 func (cm *Manager) ConfigureBackend(
 	ctx context.Context,
 	backendName string,
@@ -341,7 +364,7 @@ func (cm *Manager) ConfigureBackend(
 		zap.Strings("ports", ports),
 	)
 	// Fetch current config
-	routes, err := cm.AdminAPI.getRoutes(ctx)
+	routes, err := cm.CaddyConfigurator.getRoutes(ctx)
 	if err != nil {
 		return err
 	}
@@ -362,5 +385,5 @@ func (cm *Manager) ConfigureBackend(
 
 	sortRoutes(routes)
 
-	return cm.AdminAPI.patchRoutes(ctx, routes)
+	return cm.CaddyConfigurator.updateRoutes(ctx, routes)
 }

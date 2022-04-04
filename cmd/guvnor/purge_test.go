@@ -6,10 +6,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/jimeh/go-golden"
 	"github.com/krystal/guvnor"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func Test_newPurgeCmd(t *testing.T) {
@@ -45,18 +45,18 @@ func Test_newPurgeCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mEngine := &mockEngine{}
+			ctrl := gomock.NewController(t)
+			mEngine := NewMockengine(ctrl)
+
+			ctx := context.Background()
 			provider := func() (engine, *guvnor.EngineConfig, error) {
 				return mEngine, nil, nil
 			}
 
 			if tt.wantCalled {
 				mEngine.
-					On(
-						"Purge",
-						mock.MatchedBy(func(_ context.Context) bool {
-							return true
-						})).
+					EXPECT().
+					Purge(ctx).
 					Return(tt.engineErr)
 			}
 
@@ -67,7 +67,7 @@ func Test_newPurgeCmd(t *testing.T) {
 			cmd.SetErr(stderr)
 			cmd.SetArgs(tt.args)
 
-			err := cmd.Execute()
+			err := cmd.ExecuteContext(ctx)
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
@@ -80,8 +80,6 @@ func Test_newPurgeCmd(t *testing.T) {
 			}
 			assert.Equal(t, golden.GetP(t, "stdout"), stdout.Bytes())
 			assert.Equal(t, golden.GetP(t, "stderr"), stderr.Bytes())
-
-			mEngine.AssertExpectations(t)
 		})
 	}
 }
