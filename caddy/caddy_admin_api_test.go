@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestHTTPAdminAPIClient_doRequest(t *testing.T) {
+func TestAdminAPIClient_doRequest(t *testing.T) {
 	type testObj struct {
 		Field string `json:"field"`
 	}
@@ -97,7 +97,7 @@ func TestHTTPAdminAPIClient_doRequest(t *testing.T) {
 			)
 			t.Cleanup(srv.Close)
 
-			c := NewHTTPAdminAPIClient(zaptest.NewLogger(t))
+			c := NewAdminAPIClient(zaptest.NewLogger(t))
 			c.basePath = srv.URL
 
 			err := c.doRequest(context.Background(), tt.method, tt.path, tt.body, tt.out)

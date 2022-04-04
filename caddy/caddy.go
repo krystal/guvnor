@@ -66,9 +66,9 @@ type caddyConfigurator interface {
 type Manager struct {
 	Log *zap.Logger
 
-	// AdminAPI is used by manager for making changes to a caddy configuration
-	// via its admin API.
-	AdminAPI caddyConfigurator
+	// CaddyConfigurator is used by manager for making changes to a caddy
+	// configuration
+	CaddyConfigurator caddyConfigurator
 	// Docker is the implementation of Docker that the manager should use to
 	// create and query containers.
 	Docker docker.APIClient
@@ -164,7 +164,7 @@ func (cm *Manager) calculateConfigChanges(config *caddy.Config) (bool, error) {
 }
 
 func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
-	config, err := cm.AdminAPI.getConfig(ctx)
+	config, err := cm.CaddyConfigurator.getConfig(ctx)
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
 
 	if hasChanged {
 		cm.Log.Info("reconciliation found changes, updating caddy config")
-		return cm.AdminAPI.updateConfig(ctx, config)
+		return cm.CaddyConfigurator.updateConfig(ctx, config)
 	}
 
 	return nil
@@ -363,7 +363,7 @@ func (cm *Manager) ConfigureBackend(
 		zap.Strings("ports", ports),
 	)
 	// Fetch current config
-	routes, err := cm.AdminAPI.getRoutes(ctx)
+	routes, err := cm.CaddyConfigurator.getRoutes(ctx)
 	if err != nil {
 		return err
 	}
@@ -384,5 +384,5 @@ func (cm *Manager) ConfigureBackend(
 
 	sortRoutes(routes)
 
-	return cm.AdminAPI.updateRoutes(ctx, routes)
+	return cm.CaddyConfigurator.updateRoutes(ctx, routes)
 }
