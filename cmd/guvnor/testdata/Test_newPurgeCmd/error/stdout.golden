@@ -1,0 +1,7 @@
+Usage:
+  purge [flags]
+
+Flags:
+      --confirm   Confirms you wish to run this destructive action
+  -h, --help      help for purge
+
