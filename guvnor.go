@@ -19,14 +19,14 @@ const (
 
 type Engine struct {
 	log      *zap.Logger
-	docker   *client.Client
+	docker   client.APIClient
 	config   EngineConfig
 	caddy    *caddy.Manager
 	state    *state.FileBasedStore
 	validate *validator.Validate
 }
 
-func NewEngine(log *zap.Logger, docker *client.Client, cfg EngineConfig, validate *validator.Validate) *Engine {
+func NewEngine(log *zap.Logger, docker client.APIClient, cfg EngineConfig, validate *validator.Validate) *Engine {
 	if validate == nil {
 		validate = validator.New()
 	}

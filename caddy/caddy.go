@@ -37,7 +37,7 @@ type Config struct {
 }
 
 type ACMEConfig struct {
-	// CA is the URL of the ACME service.
+	// CA is the URL of the ACME service to request certificates from.
 	CA string `yaml:"ca"`
 	// Email is the address that should be provided to the acme service for
 	// contacting us.
@@ -45,15 +45,37 @@ type ACMEConfig struct {
 }
 
 type PortsConfig struct {
-	HTTP  int `yaml:"http"`
+	// HTTP is the port Caddy should listen on for unencrypted HTTP traffic.
+	// By default this is 80.
+	HTTP int `yaml:"http"`
+	// HTTPS is the port Caddy should listen on for encrypted HTTPS traffic.
+	// By default this is 443.
 	HTTPS int `yaml:"https"`
 }
 
+type adminAPI interface {
+	getRoutes(ctx context.Context) ([]route, error)
+	patchRoutes(ctx context.Context, routes []route) error
+	getConfig(ctx context.Context) (*caddy.Config, error)
+	postConfig(ctx context.Context, cfg *caddy.Config) error
+}
+
+// Manager creates and manages a Caddy container. It provides a Init() method
+// for creating the container, and reconciling its initial configuration, and
+// methods for reconciling Guvnor services in the caddy configuration.
 type Manager struct {
-	AdminAPI        *Client
-	Docker          *docker.Client
-	Log             *zap.Logger
-	Config          Config
+	Log *zap.Logger
+
+	// AdminAPI is used by manager for making changes to a caddy configuration
+	// via its admin API.
+	AdminAPI adminAPI
+	// Docker is the implementation of Docker that the manager should use to
+	// create and query containers.
+	Docker docker.APIClient
+	// Config controls how the manager behaves.
+	Config Config
+	// ContainerLabels is a map of labels to add to any containers created by
+	// the manager.
 	ContainerLabels map[string]string
 }
 
@@ -325,8 +347,8 @@ func sortRoutes(routes []route) {
 	})
 }
 
-// ConfigureBackend sets up the appropriate routes in Caddy for a
-// specific process/service
+// ConfigureBackend sets up the appropriate routes in Caddy for a specific
+// process/service
 func (cm *Manager) ConfigureBackend(
 	ctx context.Context,
 	backendName string,

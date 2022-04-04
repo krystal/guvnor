@@ -45,7 +45,7 @@ func (c *Client) getRoutes(ctx context.Context) ([]route, error) {
 	return currentRoutes, nil
 }
 
-// prependRoute adds a new route to the start of the route array in the server
+// patchRoutes updates the configured routes in Caddy with the provided set
 func (c *Client) patchRoutes(ctx context.Context, route []route) error {
 	prependRoutePath := fmt.Sprintf(
 		"config/apps/http/servers/%s/routes",
