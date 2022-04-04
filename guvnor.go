@@ -45,7 +45,7 @@ func NewEngine(log *zap.Logger, docker client.APIClient, cfg EngineConfig, valid
 			ContainerLabels: map[string]string{
 				managedLabel: "1",
 			},
-			AdminAPI: caddy.NewAdminAPIClient(
+			CaddyConfigurator: caddy.NewAdminAPIClient(
 				log.Named("caddy").Named("client"),
 			),
 		},

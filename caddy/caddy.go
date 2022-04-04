@@ -330,6 +330,7 @@ func (cm *Manager) generateRouteforBackend(backendName string, hostnames []strin
 func sortRoutes(routes []route) {
 	pathLength := func(route route) int {
 		if len(route.MatcherSets) == 0 {
+			// Sort the default handler last (it has no matcher sets)
 			return -1
 		}
 		matcher := route.MatcherSets[0]
