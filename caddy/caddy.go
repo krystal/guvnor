@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -31,9 +30,12 @@ const (
 
 type Config struct {
 	// Image is the container image that should be deployed as caddy
-	Image string      `yaml:"image"`
-	ACME  ACMEConfig  `yaml:"acme"`
-	Ports PortsConfig `yaml:"ports"`
+	Image string `yaml:"image"`
+	// ListenIP is the IP that the caddy listener should bind to. By default,
+	// this will bind to all interfaces/IPs.
+	ListenIP string      `yaml:"listenIP"`
+	ACME     ACMEConfig  `yaml:"acme"`
+	Ports    PortsConfig `yaml:"ports"`
 }
 
 type ACMEConfig struct {
@@ -122,7 +124,11 @@ func (cm *Manager) calculateConfigChanges(config *caddy.Config) (bool, error) {
 		hasChanged = true
 	}
 
-	listenAddr := ":" + strconv.Itoa(cm.Config.Ports.HTTPS)
+	listenAddr := fmt.Sprintf(
+		"%s:%d",
+		cm.Config.ListenIP,
+		cm.Config.Ports.HTTPS,
+	)
 	if len(serverConfig.Listen) != 1 || serverConfig.Listen[0] != listenAddr {
 		serverConfig.Listen = []string{listenAddr}
 		hasChanged = true
