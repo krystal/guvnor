@@ -30,7 +30,9 @@ const (
 
 type Config struct {
 	// Image is the container image that should be deployed as caddy
-	Image    string      `yaml:"image"`
+	Image string `yaml:"image"`
+	// ListenIP is the IP that the caddy listener should bind to. By default,
+	// this will bind to all interfaces/IPs.
 	ListenIP string      `yaml:"listenIP"`
 	ACME     ACMEConfig  `yaml:"acme"`
 	Ports    PortsConfig `yaml:"ports"`
