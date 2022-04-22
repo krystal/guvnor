@@ -19,6 +19,8 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.18
+      - name: install deps
+        run: cat tools.go | grep _ | awk -F'"' '{print $2}' | xargs -tI % go install %
       - name: release
         uses: goreleaser/goreleaser-action@v2
         with:
