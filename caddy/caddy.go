@@ -33,9 +33,16 @@ type Config struct {
 	Image string `yaml:"image"`
 	// ListenIP is the IP that the caddy listener should bind to. By default,
 	// this will bind to all interfaces/IPs.
-	ListenIP string      `yaml:"listenIP"`
-	ACME     ACMEConfig  `yaml:"acme"`
-	Ports    PortsConfig `yaml:"ports"`
+	ListenIP           string                             `yaml:"listenIP"`
+	ACME               ACMEConfig                         `yaml:"acme"`
+	Ports              PortsConfig                        `yaml:"ports"`
+	AdditionalBackends map[string]AdditionalBackendConfig `yaml:"additionalBackends"`
+}
+
+type AdditionalBackendConfig struct {
+	Hostnames []string `yaml:"hostnames"`
+	Path      string   `yaml:"path"`
+	Upstreams []string `yaml:"upstreams"`
 }
 
 type ACMEConfig struct {
@@ -182,9 +189,23 @@ func (cm *Manager) reconcileCaddyConfig(ctx context.Context) error {
 
 	if hasChanged {
 		cm.Log.Info("reconciliation found changes, updating caddy config")
-		return cm.CaddyConfigurator.updateConfig(ctx, config)
+		if err := cm.CaddyConfigurator.updateConfig(ctx, config); err != nil {
+			return err
+		}
 	}
 
+	for backendName, additionalBackend := range cm.Config.AdditionalBackends {
+		err := cm.ConfigureBackend(
+			ctx,
+			backendName,
+			additionalBackend.Hostnames,
+			additionalBackend.Upstreams,
+			additionalBackend.Path,
+		)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -299,7 +320,7 @@ func (cm *Manager) Init(ctx context.Context) error {
 	return nil
 }
 
-func (cm *Manager) generateRouteforBackend(backendName string, hostnames []string, ports []string, path string) route {
+func (cm *Manager) generateRouteforBackend(backendName string, hostnames []string, upstreams []string, path string) route {
 	route := route{
 		Group:       backendName,
 		MatcherSets: []matcherSet{},
@@ -311,9 +332,9 @@ func (cm *Manager) generateRouteforBackend(backendName string, hostnames []strin
 	handler := reverseProxyHandler{
 		Upstreams: []upstream{},
 	}
-	for _, port := range ports {
+	for _, u := range upstreams {
 		handler.Upstreams = append(handler.Upstreams, upstream{
-			Dial: fmt.Sprintf("localhost:%s", port),
+			Dial: u,
 		})
 	}
 	route.Handlers = append(route.Handlers, handler)
@@ -360,14 +381,14 @@ func (cm *Manager) ConfigureBackend(
 	ctx context.Context,
 	backendName string,
 	hostNames []string,
-	ports []string,
+	upstreams []string,
 	path string,
 ) error {
 	cm.Log.Info("configuring caddy for backend",
 		zap.String("backend", backendName),
 		zap.Strings("hostnames", hostNames),
 		zap.String("path", path),
-		zap.Strings("ports", ports),
+		zap.Strings("upstreams", upstreams),
 	)
 	// Fetch current config
 	routes, err := cm.CaddyConfigurator.getRoutes(ctx)
@@ -375,7 +396,7 @@ func (cm *Manager) ConfigureBackend(
 		return err
 	}
 
-	routeConfig := cm.generateRouteforBackend(backendName, hostNames, ports, path)
+	routeConfig := cm.generateRouteforBackend(backendName, hostNames, upstreams, path)
 
 	// Find and update existing route group
 	existingRoute := false
