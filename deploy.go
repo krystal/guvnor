@@ -85,15 +85,17 @@ func findFreePort() (string, error) {
 
 func (e *Engine) updateLoadbalancerForDeployment(ctx context.Context, svcName string, process *ServiceProcessConfig, containers []deployedProcessContainer) error {
 	caddyBackendName := fmt.Sprintf("%s-%s", svcName, process.name)
-	ports := []string{}
+	upstreams := []string{}
 	for _, container := range containers {
 		if container.Port != "" {
-			ports = append(ports, container.Port)
+			upstreams = append(
+				upstreams, fmt.Sprintf("localhost:%s", container.Port),
+			)
 		}
 	}
 
 	return e.caddy.ConfigureBackend(
-		ctx, caddyBackendName, process.Caddy.Hostnames, ports, process.Caddy.Path,
+		ctx, caddyBackendName, process.Caddy.Hostnames, upstreams, process.Caddy.Path,
 	)
 }
 

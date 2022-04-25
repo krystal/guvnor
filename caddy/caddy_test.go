@@ -216,7 +216,7 @@ func TestManager_ConfigureBackend(t *testing.T) {
 
 		backendName string
 		hostNames   []string
-		ports       []string
+		upstreams   []string
 		path        string
 
 		wantRoutes []route
@@ -232,7 +232,7 @@ func TestManager_ConfigureBackend(t *testing.T) {
 
 			backendName: "fizz",
 			hostNames:   []string{"fizz.example.com", "fizz2.example.com"},
-			ports:       []string{"1337", "8080"},
+			upstreams:   []string{"localhost:1337", "localhost:8080"},
 			path:        "/boo",
 
 			wantRoutes: []route{
@@ -311,7 +311,7 @@ func TestManager_ConfigureBackend(t *testing.T) {
 
 			backendName: "fizz",
 			hostNames:   []string{"fizz.example.net"},
-			ports:       []string{"9090"},
+			upstreams:   []string{"localhost:9090"},
 			path:        "/fizz",
 
 			wantRoutes: []route{
@@ -370,7 +370,7 @@ func TestManager_ConfigureBackend(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			err := cm.ConfigureBackend(ctx, tt.backendName, tt.hostNames, tt.ports, tt.path)
+			err := cm.ConfigureBackend(ctx, tt.backendName, tt.hostNames, tt.upstreams, tt.path)
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
