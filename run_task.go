@@ -50,12 +50,14 @@ func (e *Engine) interactiveAttach(ctx context.Context, id string) (chan struct{
 }
 
 func (e *Engine) runTask(ctx context.Context, task *ServiceTaskConfig, svc *ServiceConfig, injectEnv map[string]string) error {
-	image, err := task.GetImage()
+	image, pull, err := task.GetImage()
 	if err != nil {
 		return err
 	}
-	if err := e.pullImage(ctx, image); err != nil {
-		return err
+	if pull {
+		if err = e.pullImage(ctx, image); err != nil {
+			return err
+		}
 	}
 
 	env := mergeEnv(

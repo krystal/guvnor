@@ -114,12 +114,15 @@ func Test_ServiceProcessConfig_GetQuantity(t *testing.T) {
 	}
 }
 
+func boolPtr(b bool) *bool { return &b }
+
 func Test_ServiceProcessConfig_GetImage(t *testing.T) {
 	tests := []struct {
-		name    string
-		spc     ServiceProcessConfig
-		want    string
-		wantErr string
+		name     string
+		spc      ServiceProcessConfig
+		want     string
+		wantPull bool
+		wantErr  string
 	}{
 		{
 			name: "fallback",
@@ -131,21 +134,70 @@ func Test_ServiceProcessConfig_GetImage(t *testing.T) {
 					},
 				},
 			},
-			want: "foo:bar",
+			want:     "foo:bar",
+			wantPull: true,
+		},
+		{
+			name: "fallback with true ImagePull",
+			spc: ServiceProcessConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:     "foo",
+						ImageTag:  "bar",
+						ImagePull: boolPtr(true),
+					},
+				},
+			},
+			want:     "foo:bar",
+			wantPull: true,
+		},
+		{
+			name: "fallback with false ImagePull",
+			spc: ServiceProcessConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:     "foo",
+						ImageTag:  "bar",
+						ImagePull: boolPtr(false),
+					},
+				},
+			},
+			want:     "foo:bar",
+			wantPull: false,
 		},
 		{
 			name: "overriden",
 			spc: ServiceProcessConfig{
 				parent: &ServiceConfig{
 					Defaults: ServiceDefaultsConfig{
-						Image:    "foo",
-						ImageTag: "bar",
+						Image:     "foo",
+						ImageTag:  "bar",
+						ImagePull: boolPtr(false),
 					},
 				},
-				Image:    "fizz",
-				ImageTag: "buzz",
+				Image:     "fizz",
+				ImageTag:  "buzz",
+				ImagePull: boolPtr(true),
 			},
-			want: "fizz:buzz",
+			want:     "fizz:buzz",
+			wantPull: true,
+		},
+		{
+			name: "overriden with false ImagePull",
+			spc: ServiceProcessConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:     "foo",
+						ImageTag:  "bar",
+						ImagePull: boolPtr(true),
+					},
+				},
+				Image:     "fizz",
+				ImageTag:  "buzz",
+				ImagePull: boolPtr(false),
+			},
+			want:     "fizz:buzz",
+			wantPull: false,
 		},
 		{
 			name: "unspecified imageTag",
@@ -158,29 +210,32 @@ func Test_ServiceProcessConfig_GetImage(t *testing.T) {
 				},
 				Image: "fizz",
 			},
-			wantErr: "imageTag must be specified when image specified",
+			wantPull: false,
+			wantErr:  "imageTag must be specified when image specified",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.spc.GetImage()
+			got, gotPull, err := tt.spc.GetImage()
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantPull, gotPull)
 		})
 	}
 }
 
 func Test_ServiceTaskConfig_GetImage(t *testing.T) {
 	tests := []struct {
-		name    string
-		stc     ServiceTaskConfig
-		want    string
-		wantErr string
+		name     string
+		stc      ServiceTaskConfig
+		want     string
+		wantPull bool
+		wantErr  string
 	}{
 		{
 			name: "fallback",
@@ -192,21 +247,70 @@ func Test_ServiceTaskConfig_GetImage(t *testing.T) {
 					},
 				},
 			},
-			want: "foo:bar",
+			want:     "foo:bar",
+			wantPull: true,
+		},
+		{
+			name: "fallback with true ImagePull",
+			stc: ServiceTaskConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:     "foo",
+						ImageTag:  "bar",
+						ImagePull: boolPtr(true),
+					},
+				},
+			},
+			want:     "foo:bar",
+			wantPull: true,
+		},
+		{
+			name: "fallback with false ImagePull",
+			stc: ServiceTaskConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:     "foo",
+						ImageTag:  "bar",
+						ImagePull: boolPtr(false),
+					},
+				},
+			},
+			want:     "foo:bar",
+			wantPull: false,
 		},
 		{
 			name: "overriden",
 			stc: ServiceTaskConfig{
 				parent: &ServiceConfig{
 					Defaults: ServiceDefaultsConfig{
-						Image:    "foo",
-						ImageTag: "bar",
+						Image:     "foo",
+						ImageTag:  "bar",
+						ImagePull: boolPtr(false),
 					},
 				},
-				Image:    "fizz",
-				ImageTag: "buzz",
+				Image:     "fizz",
+				ImageTag:  "buzz",
+				ImagePull: boolPtr(true),
 			},
-			want: "fizz:buzz",
+			want:     "fizz:buzz",
+			wantPull: true,
+		},
+		{
+			name: "overriden with false ImagePull",
+			stc: ServiceTaskConfig{
+				parent: &ServiceConfig{
+					Defaults: ServiceDefaultsConfig{
+						Image:     "foo",
+						ImageTag:  "bar",
+						ImagePull: boolPtr(true),
+					},
+				},
+				Image:     "fizz",
+				ImageTag:  "buzz",
+				ImagePull: boolPtr(false),
+			},
+			want:     "fizz:buzz",
+			wantPull: false,
 		},
 		{
 			name: "unspecified imageTag",
@@ -225,13 +329,14 @@ func Test_ServiceTaskConfig_GetImage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.stc.GetImage()
+			got, gotPull, err := tt.stc.GetImage()
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantPull, gotPull)
 		})
 	}
 }
