@@ -433,12 +433,14 @@ func (e *Engine) deployServiceProcess(
 	}
 
 	// Calculate and pull image for new containers
-	image, err := process.GetImage()
+	image, pull, err := process.GetImage()
 	if err != nil {
 		return err
 	}
-	if err := e.pullImage(ctx, image); err != nil {
-		return err
+	if pull {
+		if err = e.pullImage(ctx, image); err != nil {
+			return err
+		}
 	}
 
 	for i := 0; i < process.GetQuantity(); i++ {

@@ -76,11 +76,12 @@ type ServiceCallbacksConfig struct {
 }
 
 type ServiceDefaultsConfig struct {
-	Image    string               `yaml:"image"`
-	ImageTag string               `yaml:"imageTag"`
-	Env      map[string]string    `yaml:"env"`
-	Mounts   []ServiceMountConfig `yaml:"mounts"`
-	Network  NetworkConfig        `yaml:"network"`
+	Image     string               `yaml:"image"`
+	ImageTag  string               `yaml:"imageTag"`
+	ImagePull *bool                `yaml:"imagePull,omitempty"`
+	Env       map[string]string    `yaml:"env"`
+	Mounts    []ServiceMountConfig `yaml:"mounts"`
+	Network   NetworkConfig        `yaml:"network"`
 
 	// User allows the default User/Group to be specified for task and
 	// process containers.
@@ -115,13 +116,14 @@ type ServiceProcessConfig struct {
 	parent *ServiceConfig `yaml:"_"`
 	name   string         `yaml:"_"`
 
-	Image    string               `yaml:"image"`
-	ImageTag string               `yaml:"imageTag"`
-	Command  []string             `yaml:"command"`
-	Quantity int                  `yaml:"quantity"`
-	Env      map[string]string    `yaml:"env"`
-	Mounts   []ServiceMountConfig `yaml:"mounts"`
-	Caddy    ProcessCaddyConfig   `yaml:"caddy"`
+	Image     string               `yaml:"image"`
+	ImageTag  string               `yaml:"imageTag"`
+	ImagePull *bool                `yaml:"imagePull,omitempty"`
+	Command   []string             `yaml:"command"`
+	Quantity  int                  `yaml:"quantity"`
+	Env       map[string]string    `yaml:"env"`
+	Mounts    []ServiceMountConfig `yaml:"mounts"`
+	Caddy     ProcessCaddyConfig   `yaml:"caddy"`
 
 	// Privileged grants all capabilities to the container.
 	Privileged bool `yaml:"privileged"`
@@ -163,7 +165,14 @@ func (spc ServiceProcessConfig) GetUser() string {
 	return spc.parent.Defaults.User
 }
 
-func (spc ServiceProcessConfig) GetImage() (string, error) {
+func (spc ServiceProcessConfig) GetImage() (string, bool, error) {
+	pull := true
+	if spc.ImagePull != nil {
+		pull = *spc.ImagePull
+	} else if spc.parent.Defaults.ImagePull != nil {
+		pull = *spc.parent.Defaults.ImagePull
+	}
+
 	image := fmt.Sprintf(
 		"%s:%s",
 		spc.parent.Defaults.Image,
@@ -171,7 +180,7 @@ func (spc ServiceProcessConfig) GetImage() (string, error) {
 	)
 	if spc.Image != "" {
 		if spc.ImageTag == "" {
-			return "", errors.New(
+			return "", false, errors.New(
 				"imageTag must be specified when image specified",
 			)
 		}
@@ -182,7 +191,7 @@ func (spc ServiceProcessConfig) GetImage() (string, error) {
 		)
 	}
 
-	return image, nil
+	return image, pull, nil
 }
 
 func (spc ServiceProcessConfig) GetMounts() []mount.Mount {
@@ -218,6 +227,7 @@ type ServiceTaskConfig struct {
 
 	Image       string               `yaml:"image"`
 	ImageTag    string               `yaml:"imageTag"`
+	ImagePull   *bool                `yaml:"imagePull,omitempty"`
 	Command     []string             `yaml:"command"`
 	Interactive bool                 `yaml:"interactive"`
 	Env         map[string]string    `yaml:"env"`
@@ -238,7 +248,14 @@ func (stc ServiceTaskConfig) GetUser() string {
 	return stc.parent.Defaults.User
 }
 
-func (stc ServiceTaskConfig) GetImage() (string, error) {
+func (stc ServiceTaskConfig) GetImage() (string, bool, error) {
+	pull := true
+	if stc.ImagePull != nil {
+		pull = *stc.ImagePull
+	} else if stc.parent.Defaults.ImagePull != nil {
+		pull = *stc.parent.Defaults.ImagePull
+	}
+
 	image := fmt.Sprintf(
 		"%s:%s",
 		stc.parent.Defaults.Image,
@@ -246,7 +263,7 @@ func (stc ServiceTaskConfig) GetImage() (string, error) {
 	)
 	if stc.Image != "" {
 		if stc.ImageTag == "" {
-			return "", errors.New(
+			return "", false, errors.New(
 				"imageTag must be specified when image specified",
 			)
 		}
@@ -257,7 +274,7 @@ func (stc ServiceTaskConfig) GetImage() (string, error) {
 		)
 	}
 
-	return image, nil
+	return image, pull, nil
 }
 
 func (stc ServiceTaskConfig) GetMounts() []mount.Mount {
