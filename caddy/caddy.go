@@ -3,6 +3,7 @@ package caddy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,7 +20,6 @@ import (
 	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
 	"github.com/krystal/guvnor/ready"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
