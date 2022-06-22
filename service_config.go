@@ -2,6 +2,7 @@ package guvnor
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -10,7 +11,6 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/go-playground/validator/v10"
 	"github.com/krystal/guvnor/ready"
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 )
 
