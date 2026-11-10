@@ -14,7 +14,8 @@ Below is a configuration file using all available options:
 caddy:
   # image controls the Caddy container image that should be deployed,
   image: caddy:2.4.6-alpine
-  # listenIP limits Caddy to a single IP address. By default, Caddy listens on all of them.
+  # listenIP limits Caddy to a single IP address. If neither listenIP nor listenIPs is set,
+  # Caddy listens on every address on the host.
   listenIP: 192.0.2.10
   # listenIPs limits Caddy to several IP addresses, such as an IPv4 and an IPv6 address on the
   # same host. Use either listenIP or listenIPs, not both.
