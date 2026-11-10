@@ -15,6 +15,9 @@ jobs:
         with:
           version: v1.45.2
           args: --timeout 5m0s
+          # Use the Go 1.18 from setup-go. Otherwise the action installs the
+          # latest Go, which golangci-lint 1.45.2 can't load packages from.
+          skip-go-installation: true
         env:
           VERBOSE: "true"
   test:
@@ -25,15 +28,5 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: 1.18
-      - name: run tests 
-        run: go test -coverprofile coverage.out ./...
-      - name: publish coverage
-        uses: paambaati/codeclimate-action@v2.7.4
-        env:
-          VERBOSE: "true"
-          GOMAXPROCS: 4
-          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
-        with:
-          prefix: github.com/${{ github.repository }}
-          coverageLocations: |
-            ${{ github.workspace }}/coverage.out:gocov
+      - name: run tests
+        run: go test ./...
