@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
+	"net"
 	"os"
+	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,7 +35,11 @@ type Config struct {
 	Image string `yaml:"image"`
 	// ListenIP is the IP that the caddy listener should bind to. By default,
 	// this will bind to all interfaces/IPs.
-	ListenIP           string                             `yaml:"listenIP"`
+	ListenIP string `yaml:"listenIP"`
+	// ListenIPs are the IPs that the caddy listener should bind to, such as an
+	// IPv4 and an IPv6 address on the same host. Use this or ListenIP, not
+	// both.
+	ListenIPs          []string                           `yaml:"listenIPs" validate:"excluded_with=ListenIP,dive,ip"`
 	ACME               ACMEConfig                         `yaml:"acme"`
 	Ports              PortsConfig                        `yaml:"ports"`
 	AdditionalBackends map[string]AdditionalBackendConfig `yaml:"additionalBackends"`
@@ -60,6 +66,26 @@ type PortsConfig struct {
 	// HTTPS is the port Caddy should listen on for encrypted HTTPS traffic.
 	// By default this is 443.
 	HTTPS int `yaml:"https"`
+}
+
+// listenAddrs returns the addresses Caddy should listen on for HTTPS traffic,
+// with IPv6 addresses in the brackets Caddy expects.
+func (c Config) listenAddrs() []string {
+	ips := c.ListenIPs
+	if len(ips) == 0 {
+		ips = []string{c.ListenIP}
+	}
+
+	port := strconv.Itoa(c.Ports.HTTPS)
+	addrs := make([]string, 0, len(ips))
+	for _, ip := range ips {
+		// An IPv6 ListenIP only worked in brackets before, so existing configs
+		// may have them. Remove them so JoinHostPort doesn't add a second pair.
+		ip = strings.TrimSuffix(strings.TrimPrefix(ip, "["), "]")
+		addrs = append(addrs, net.JoinHostPort(ip, port))
+	}
+
+	return addrs
 }
 
 type caddyConfigurator interface {
@@ -131,13 +157,9 @@ func (cm *Manager) calculateConfigChanges(config *caddy.Config) (bool, error) {
 		hasChanged = true
 	}
 
-	listenAddr := fmt.Sprintf(
-		"%s:%d",
-		cm.Config.ListenIP,
-		cm.Config.Ports.HTTPS,
-	)
-	if len(serverConfig.Listen) != 1 || serverConfig.Listen[0] != listenAddr {
-		serverConfig.Listen = []string{listenAddr}
+	listenAddrs := cm.Config.listenAddrs()
+	if !reflect.DeepEqual(serverConfig.Listen, listenAddrs) {
+		serverConfig.Listen = listenAddrs
 		hasChanged = true
 	}
 

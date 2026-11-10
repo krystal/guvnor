@@ -88,6 +88,112 @@ func TestManager_calculateConfigChanges(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "ipv6 listen ip",
+			config: Config{
+				Ports: PortsConfig{
+					HTTP:  80,
+					HTTPS: 443,
+				},
+				ListenIP: "2001:db8::10",
+			},
+			wantChanged: true,
+			existing: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\":443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+			want: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\"[2001:db8::10]:443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+		},
+		{
+			// Before ListenIPs, an IPv6 ListenIP only worked in brackets.
+			name: "bracketed ipv6 listen ip is unchanged",
+			config: Config{
+				Ports: PortsConfig{
+					HTTP:  80,
+					HTTPS: 443,
+				},
+				ListenIP: "[2001:db8::10]",
+			},
+			wantChanged: false,
+			existing: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\"[2001:db8::10]:443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+			want: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\"[2001:db8::10]:443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+		},
+		{
+			name: "update listen ips",
+			config: Config{
+				Ports: PortsConfig{
+					HTTP:  80,
+					HTTPS: 443,
+				},
+				ListenIPs: []string{"192.0.2.10", "2001:db8::10"},
+			},
+			wantChanged: true,
+			existing: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\"192.0.2.10:443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+			want: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\"192.0.2.10:443\",\"[2001:db8::10]:443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+		},
+		{
+			name: "no change with listen ips",
+			config: Config{
+				Ports: PortsConfig{
+					HTTP:  80,
+					HTTPS: 443,
+				},
+				ListenIPs: []string{"192.0.2.10", "2001:db8::10"},
+			},
+			wantChanged: false,
+			existing: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\"192.0.2.10:443\",\"[2001:db8::10]:443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+			want: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\"192.0.2.10:443\",\"[2001:db8::10]:443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+		},
+		{
+			name: "back to a single listen ip",
+			config: Config{
+				Ports: PortsConfig{
+					HTTP:  80,
+					HTTPS: 443,
+				},
+				ListenIP: "192.0.2.10",
+			},
+			wantChanged: true,
+			existing: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\"192.0.2.10:443\",\"[2001:db8::10]:443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+			want: &caddy.Config{
+				AppsRaw: caddy.ModuleMap{
+					"http": []byte("{\"http_port\":80,\"https_port\":443,\"servers\":{\"guvnor\":{\"listen\":[\"192.0.2.10:443\"],\"routes\":[{\"handle\":[{\"body\":\"Welcome to Guvnor. We found no backend matching your request.\",\"handler\":\"static_response\",\"status_code\":\"404\"}]}]}}}"),
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
