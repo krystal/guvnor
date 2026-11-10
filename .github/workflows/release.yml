@@ -22,10 +22,12 @@ jobs:
       - name: install deps
         run: cat tools.go | grep _ | awk -F'"' '{print $2}' | xargs -tI % go install %
       - name: release
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
-          version: latest
-          args: release --rm-dist
+          # Stay on GoReleaser v2. "latest" would pick up the next major
+          # version, which may not accept this config.
+          version: "~> v2"
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

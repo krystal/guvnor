@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     # You may remove this if you don't use go modules.
@@ -10,17 +12,23 @@ builds:
     goos:
       - linux
       - darwin
+    # GoReleaser v2 no longer builds 386 by default. List the architectures
+    # so releases keep shipping the same set of binaries as before.
+    goarch:
+      - amd64
+      - arm64
+      - "386"
     dir: cmd/guvnor
 archives:
-  - replacements:
-      darwin: Darwin
-      linux: Linux
-      386: i386
-      amd64: x86_64
+  # Keep the archive names from earlier releases, such as
+  # guvnor_0.9.1_Linux_x86_64.tar.gz. docs/static/install.sh downloads
+  # the Linux x86_64 archive by this name.
+  - name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 changelog:
   sort: asc
   filters:
